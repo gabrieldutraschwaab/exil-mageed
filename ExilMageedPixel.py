@@ -17,6 +17,11 @@ class Jogador:
         self.x = x
         self.y = y
         self.magias = magias
+        self.quadro = 0
+        self.sprite_x = 0
+        self.sprite_y = 0
+        self.movendo = False
+        self.tempo_animacao = 0
         
         
     def modificarVida(self, modificacao):
@@ -69,7 +74,7 @@ class Jogador:
     def moverY(self, movimentacao):
         self.y += movimentacao
     def aprenderMagia(self, adicao):
-        magias.append(adicao) 
+        self.magias.append(adicao)
         
         
         
@@ -140,17 +145,65 @@ class Inimigo:
 class Jogo:
     def __init__(self):
         pyxel.init(160, 120, title="Exil Mageed")
-        pyxel.run(self.update, self.draw)
+        pyxel.images[0].load(0, 0, "mage.png")
         self.mago = Jogador("Exil Mageed", 200, 50, 50, 40, 30, 10, 40, 100, 100, 10, [], [], 20, 20)
         self.lutador_demoniaco = Inimigo("Lutador Demoníaco", 240, 65, 55, 65, 35, 80)
+        pyxel.run(self.update, self.draw)
         
 
         
     def update(self):
-        pass
+        self.mago.movendo = False
+
+        if pyxel.btn(pyxel.KEY_W):
+            self.mago.moverY(-1)
+            self.mago.sprite_x = 64
+            self.mago.sprite_y = 0
+            self.mago.movendo = True
+        elif pyxel.btn(pyxel.KEY_S):
+            self.mago.moverY(1)
+            self.mago.sprite_x = 0
+            self.mago.sprite_y = 0
+            self.mago.movendo = True
+        elif pyxel.btn(pyxel.KEY_A):
+            self.mago.moverX(-1)
+            self.mago.sprite_x = 64
+            self.mago.sprite_y = 16
+            self.mago.movendo = True
+        elif pyxel.btn(pyxel.KEY_D):
+            self.mago.moverX(1)
+            self.mago.sprite_x = 0
+            self.mago.sprite_y = 16
+            self.mago.movendo = True
+
+        if self.mago.movendo:
+            self.mago.tempo_animacao += 1
+
+            if self.mago.tempo_animacao == 6:
+                self.mago.quadro += 1
+                self.mago.tempo_animacao = 0
+
+                if self.mago.quadro > 3:
+                    self.mago.quadro = 0
+        else:
+            self.mago.quadro = 0
+            self.mago.tempo_animacao = 0
+
+        if self.mago.x < 0:
+            self.mago.x = 0
+        elif self.mago.x > 144:
+            self.mago.x = 144
+
+        if self.mago.y < 0:
+            self.mago.y = 0
+        elif self.mago.y > 104:
+            self.mago.y = 104
     
     def draw(self):
         pyxel.cls(0)
+        x_imagem = self.mago.sprite_x + self.mago.quadro * 16
+
+        pyxel.blt(self.mago.x, self.mago.y, 0, x_imagem, self.mago.sprite_y, 16, 16, 7)
         
         
 Jogo()
