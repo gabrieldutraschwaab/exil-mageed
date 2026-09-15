@@ -26,7 +26,7 @@ class Jogador:
         
     def modificarVida(self, modificacao):
         if modificacao <= -self.vida:
-            print("Você morreu")
+            self.vida = 0
         elif modificacao > (200 - self.vida):
             self.vida = 200
         else:
@@ -41,8 +41,8 @@ class Jogador:
     def modificarDefesa(self, modificacao):
         if modificacao <= -self.defesa:
             self.defesa = 0
-        elif modificacao > (50 - self.defesa):
-            self.defesa = 50
+        elif modificacao > (100 - self.defesa):
+            self.defesa = 100
         else:
             self.defesa += modificacao
     def modificarVelocidade(self, modificacao):
@@ -70,9 +70,9 @@ class Jogador:
     def modificarInventario(self, modificacao):
         self.inventario += modificacao
     def moverX(self, movimentacao):
-        self.x += movimentacao
+        self.x += movimentacao * self.velocidade / 40
     def moverY(self, movimentacao):
-        self.y += movimentacao
+        self.y += movimentacao * self.velocidade / 40
     def aprenderMagia(self, adicao):
         self.magias.append(adicao)
         
@@ -140,19 +140,39 @@ class Inimigo:
         self.sorte += modificacao
     def modificarEspirito(self, modificacao):
         self.espirito += modificacao
+
+class Ataque:
+    def __init__(self, x, y, largura, altura, dano):
+        self.x = x
+        self.y = y
+        self.largura = largura
+        self.altura = altura
+        self.dano = dano
     
 
 class Jogo:
     def __init__(self):
         pyxel.init(160, 120, title="Exil Mageed")
         pyxel.images[0].load(0, 0, "mage.png")
-        self.mago = Jogador("Exil Mageed", 200, 50, 50, 40, 30, 10, 40, 100, 100, 10, [], [], 20, 20)
+        self.mago = Jogador("Exil Mageed", 200, 50, 100, 40, 30, 10, 40, 100, 100, 10, [], [], 20, 20)
+        self.ataque = Ataque(100, 70, 16, 16, 20)
+        self.encostou_ataque = False
         self.lutador_demoniaco = Inimigo("Lutador Demoníaco", 240, 65, 55, 65, 35, 80)
         pyxel.run(self.update, self.draw)
         
+    def colisaoAtaque(self):
+        colisaoX = self.mago.x + 16 >= self.ataque.x and self.mago.x <= self.ataque.x + self.ataque.largura
+        colisaoY = self.mago.y + 16 >= self.ataque.y and self.mago.y <= self.ataque.y + self.ataque.altura
 
+        if colisaoX and colisaoY:
+            return True
+        else:
+            return False
         
     def update(self):
+        if self.mago.vida == 0:
+            return
+
         self.mago.movendo = False
 
         if pyxel.btn(pyxel.KEY_W):
@@ -198,12 +218,37 @@ class Jogo:
             self.mago.y = 0
         elif self.mago.y > 104:
             self.mago.y = 104
+
+        if self.colisaoAtaque():
+            if self.encostou_ataque == False:
+                dano_recebido = self.ataque.dano
+
+                if self.mago.defesa == 0:
+                    dano_recebido += dano_recebido * 90 // 100
+                elif self.mago.defesa <= 25:
+                    dano_recebido += dano_recebido * 45 // 100
+                elif self.mago.defesa <= 50:
+                    dano_recebido += dano_recebido * 25 // 100
+
+                self.mago.modificarVida(-dano_recebido)
+                self.encostou_ataque = True
+        else:
+            self.encostou_ataque = False
     
     def draw(self):
         pyxel.cls(0)
-        x_imagem = self.mago.sprite_x + self.mago.quadro * 16
 
+        pyxel.text(2, 2, "V:" + str(self.mago.vida) + " F:" + str(self.mago.forca) + " E:" + str(self.mago.espiritualidade) + " D:" + str(self.mago.defesa), 7)
+
+        x_imagem = self.mago.sprite_x + self.mago.quadro * 16
         pyxel.blt(self.mago.x, self.mago.y, 0, x_imagem, self.mago.sprite_y, 16, 16, 7)
+
+        pyxel.rect(self.ataque.x, self.ataque.y, self.ataque.largura, self.ataque.altura, 8)
+
+        if self.mago.vida == 0:
+            pyxel.cls(0)
+            pyxel.text(55, 52, "VOCE MORREU", 8)
+            pyxel.text(55, 62, "FIM DE JOGO", 7)
         
         
 Jogo()
