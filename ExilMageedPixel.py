@@ -10,6 +10,7 @@ class Jogador:
         self.sorte = sorte
         self.esperiencia = esperiencia
         self.espirito = espirito
+        self.espiritualidade_maxima = self.espirito * 5 // 2
         self.espiritualidade = espiritualidade
         self.mana = mana
         self.capacidade_inventario = capacidade_inventario
@@ -38,6 +39,7 @@ class Jogador:
         else:
             self.vida += modificacao
         self.atualizarAtributosVida()
+
     def atualizarAtributosVida(self):
         self.forca += self.reducao_forca_vida
         self.velocidade += self.reducao_velocidade_vida
@@ -54,6 +56,7 @@ class Jogador:
 
         self.forca -= self.reducao_forca_vida
         self.velocidade -= self.reducao_velocidade_vida
+
     def modificarForca(self, modificacao):
         if modificacao <= -self.forca:
             self.forca = 0
@@ -61,6 +64,7 @@ class Jogador:
             self.forca = 50
         else:
             self.forca += modificacao
+
     def modificarDefesa(self, modificacao):
         if modificacao <= -self.defesa:
             self.defesa = 0
@@ -68,6 +72,7 @@ class Jogador:
             self.defesa = 100
         else:
             self.defesa += modificacao
+
     def modificarVelocidade(self, modificacao):
         if modificacao <= -self.velocidade:
             self.velocidade = 0
@@ -75,6 +80,7 @@ class Jogador:
             self.velocidade = 100
         else:
             self.velocidade += modificacao
+
     def modificarSorte(self, modificacao):
         if modificacao <= -self.sorte:
             self.sorte = 0
@@ -82,12 +88,25 @@ class Jogador:
             self.sorte = 100
         else:
             self.sorte += modificacao
+
     def modificarEsperiencia(self, modificacao):
         self.esperiencia += modificacao
+
     def modificarEspirito(self, modificacao):
         self.espirito += modificacao
+        self.espiritualidade_maxima = self.espirito * 5 // 2
+
+        if self.espiritualidade > self.espiritualidade_maxima:
+            self.espiritualidade = self.espiritualidade_maxima
+
     def modificarEspiritualidade(self, modificacao):
         self.espiritualidade += modificacao
+
+        if self.espiritualidade < 0:
+            self.espiritualidade = 0
+        elif self.espiritualidade > self.espiritualidade_maxima:
+            self.espiritualidade = self.espiritualidade_maxima
+
     def modificarMana(self, modificacao):
         if modificacao <= -self.mana:
             self.mana = 0
@@ -95,16 +114,30 @@ class Jogador:
             self.mana = 100
         else:
             self.mana += modificacao
+
     def modificarInventario(self, modificacao):
         self.inventario += modificacao
+
     def moverX(self, movimentacao):
         self.x += movimentacao * self.velocidade / 40
+
     def moverY(self, movimentacao):
         self.y += movimentacao * self.velocidade / 40
+
     def aprenderMagia(self, adicao):
         self.magias.append(adicao)
         
-        
+class Item:
+    def __init__(self, nome, tipo, efeito, valor, consumivel):
+        self.nome = nome
+        self.tipo = tipo
+        self.efeito = efeito
+        self.valor = valor
+        self.consumivel = consumivel
+
+    def usar(self, jogador):
+        if self.efeito == "vida":
+            jogador.modificarVida(self.valor)
         
 class Magia:
     def __init__(self, nome, dano, mana, intervalo, alcance, area, nivel, chance_aprender):
@@ -196,12 +229,13 @@ class Bau:
         self.aberto = False
 
 class ProjetilMagico:
-    def __init__(self, x, y, direcao_x, direcao_y, dano):
+    def __init__(self, x, y, direcao_x, direcao_y, dano, imagem_y):
         self.x = x
         self.y = y
         self.direcao_x = direcao_x
         self.direcao_y = direcao_y
         self.dano = dano
+        self.imagem_y = imagem_y
 
     def mover(self):
         self.x += self.direcao_x * 2
@@ -213,10 +247,25 @@ class Jogo:
         pyxel.mouse(True)
         pyxel.images[0].load(0, 0, "mage.png")
         pyxel.images[1].load(0, 0, "disparo_arcano.png")
+        pyxel.images[1].load(0, 32, "bola_fogo.png")
+        pyxel.images[1].load(0, 64, "barreira_cristal.png")
+        pyxel.images[1].load(0, 96, "explosao_arcana.png")
+        pyxel.images[2].load(0, 0, "pocao_vida.png")
         self.mago = Jogador("Exil Mageed", 200, 50, 100, 40, 30, 10, 40, 100, 100, 10, [], [], 20, 20)
         self.disparo_arcano = Magia("Disparo Arcano", 20, 10, 20, 50, 1, 1, 100)
-        self.bau = Bau(40, 70, 16, 16, [self.disparo_arcano])
+        self.bola_fogo = Magia("Bola de Fogo", 35, 20, 30, 45, 2, 1, 100)
+        self.barreira_cristal = Magia("Barreira de Cristal", 0, 25, 60, 0, 3, 1, 100)
+        self.explosao_arcana = Magia("Explosao Arcana", 50, 35, 70, 0, 4, 1, 100)
+        self.pocao_vida = Item("Pocao de Vida", "ativo", "vida", 40, True)
+        self.bau = Bau(40, 70, 16, 16, [self.disparo_arcano, self.bola_fogo, self.barreira_cristal, self.explosao_arcana])
         self.projetil = None
+        self.tela_aberta = None
+        self.estado_jogo = "menu"
+        self.magia_inventario_selecionada = None
+        self.item_inventario_selecionado = None
+        self.barreira_ativa = False
+        self.jogo_pausado = False
+        self.tempo_barreira = 0
         self.tempo_mensagem = 0
         self.ataque = Ataque(100, 70, 16, 16, 20)
         self.inimigo_fake = InimigoFake(120, 35, 16, 16, 100, 10)
@@ -253,7 +302,86 @@ class Jogo:
             return False
         
     def update(self):
+        if self.estado_jogo == "menu":
+            if pyxel.btnp(pyxel.KEY_RETURN):
+                self.estado_jogo = "exploracao"
+
+            return
+
         if self.mago.vida == 0:
+            return
+
+        if pyxel.btnp(pyxel.KEY_P):
+            if self.jogo_pausado == False:
+                self.jogo_pausado = True
+                self.tela_aberta = None
+            else:
+                self.jogo_pausado = False
+
+        if self.jogo_pausado:
+            return
+
+        if pyxel.btnp(pyxel.KEY_I):
+            if self.tela_aberta == "itens":
+                self.tela_aberta = None
+            else:
+                self.tela_aberta = "itens"
+
+        if pyxel.btnp(pyxel.KEY_M):
+            if self.tela_aberta == "magias":
+                self.tela_aberta = None
+            else:
+                self.tela_aberta = "magias"
+
+        if self.tela_aberta == "magias":
+            if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
+                for i in range(len(self.mago.magias)):
+                    inicio_y = 29 + i * 10
+                    final_y = 38 + i * 10
+
+                    if pyxel.mouse_x >= 14 and pyxel.mouse_x <= 146:
+                        if pyxel.mouse_y >= inicio_y and pyxel.mouse_y <= final_y:
+                            self.magia_inventario_selecionada = self.mago.magias[i]
+
+                for espaco in range(4):
+                    inicio_x = 89 + espaco * 17
+                    final_x = inicio_x + 14
+
+                    if pyxel.mouse_x >= inicio_x and pyxel.mouse_x <= final_x:
+                        if pyxel.mouse_y >= 104 and pyxel.mouse_y <= 118:
+                            if self.magia_inventario_selecionada != None:
+                                for outro_espaco in range(4):
+                                    if self.mago.magias_equipadas[outro_espaco] == self.magia_inventario_selecionada:
+                                        self.mago.magias_equipadas[outro_espaco] = None
+
+                                self.mago.magias_equipadas[espaco] = self.magia_inventario_selecionada
+                                self.mago.magia_selecionada = self.magia_inventario_selecionada
+
+        if self.tela_aberta == "itens":
+            if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
+                for i in range(len(self.mago.inventario)):
+                    inicio_y = 29 + i * 10
+                    final_y = 38 + i * 10
+
+                    if pyxel.mouse_x >= 14 and pyxel.mouse_x <= 146:
+                        if pyxel.mouse_y >= inicio_y and pyxel.mouse_y <= final_y:
+                            self.item_inventario_selecionado = self.mago.inventario[i]
+
+                for espaco in range(5):
+                    inicio_x = 4 + espaco * 17
+                    final_x = inicio_x + 14
+
+                    if pyxel.mouse_x >= inicio_x and pyxel.mouse_x <= final_x:
+                        if pyxel.mouse_y >= 104 and pyxel.mouse_y <= 118:
+                            if self.item_inventario_selecionado != None:
+                                for outro_espaco in range(5):
+                                    if self.mago.itens_equipados[outro_espaco] == self.item_inventario_selecionado:
+                                        self.mago.itens_equipados[outro_espaco] = None
+
+                                self.mago.itens_equipados[espaco] = self.item_inventario_selecionado
+                                self.mago.item_selecionado = self.item_inventario_selecionado
+
+        if self.tela_aberta != None:
             return
         
         self.mago.modificarMana(0.05)
@@ -300,8 +428,8 @@ class Jogo:
         elif self.mago.x > 144:
             self.mago.x = 144
 
-        if self.mago.y < 14:
-            self.mago.y = 14
+        if self.mago.y < 20:
+            self.mago.y = 20
         elif self.mago.y > 86:
             self.mago.y = 86
 
@@ -316,18 +444,46 @@ class Jogo:
                 elif self.mago.defesa <= 50:
                     dano_recebido += dano_recebido * 25 // 100
 
-                self.mago.modificarVida(-dano_recebido)
+                if self.barreira_ativa == False:
+                    self.mago.modificarVida(-dano_recebido)
+
                 self.encostou_ataque = True
+
         else:
             self.encostou_ataque = False
 
-        if self.colisaoBau() and pyxel.btnp(pyxel.KEY_E):
-            if self.bau.aberto == False:
+        if pyxel.btnp(pyxel.KEY_E):
+            if self.colisaoBau() and self.bau.aberto == False:
                 self.mago.aprenderMagia(self.disparo_arcano)
+                self.mago.aprenderMagia(self.bola_fogo)
+                self.mago.aprenderMagia(self.barreira_cristal)
+                self.mago.aprenderMagia(self.explosao_arcana)
+                self.mago.inventario.append(self.pocao_vida)
+
                 self.mago.magias_equipadas[0] = self.disparo_arcano
+                self.mago.magias_equipadas[1] = self.bola_fogo
+                self.mago.magias_equipadas[2] = self.barreira_cristal
+                self.mago.magias_equipadas[3] = self.explosao_arcana
+
                 self.mago.magia_selecionada = self.disparo_arcano
                 self.bau.aberto = True
                 self.tempo_mensagem = 60
+
+            elif self.mago.item_selecionado != None:
+                if self.mago.item_selecionado.tipo == "ativo":
+                    if self.mago.vida < 200:
+                        item_usado = self.mago.item_selecionado
+                        item_usado.usar(self.mago)
+
+                        if item_usado.consumivel:
+                            self.mago.inventario.remove(item_usado)
+
+                            for i in range(5):
+                                if self.mago.itens_equipados[i] == item_usado:
+                                    self.mago.itens_equipados[i] = None
+
+                            self.mago.item_selecionado = None
+                            self.item_inventario_selecionado = None
 
         if pyxel.btnp(pyxel.KEY_1):
             self.mago.item_selecionado = self.mago.itens_equipados[0]
@@ -359,13 +515,51 @@ class Jogo:
                     if distancia > 0:
                         direcao_x = distancia_x / distancia
                         direcao_y = distancia_y / distancia
-                        self.projetil = ProjetilMagico(self.mago.x + 4, self.mago.y + 4, direcao_x, direcao_y, self.disparo_arcano.dano)
+                        self.projetil = ProjetilMagico(self.mago.x + 4, self.mago.y + 4, direcao_x, direcao_y, self.disparo_arcano.dano, 0)
                         self.mago.modificarMana(-self.disparo_arcano.mana)
+
+            elif self.mago.magia_selecionada == self.bola_fogo:
+                if self.mago.mana >= self.bola_fogo.mana:
+                    distancia_x = pyxel.mouse_x - (self.mago.x + 8)
+                    distancia_y = pyxel.mouse_y - (self.mago.y + 8)
+                    distancia = (distancia_x * distancia_x + distancia_y * distancia_y) ** 0.5
+
+                    if distancia > 0:
+                        direcao_x = distancia_x / distancia
+                        direcao_y = distancia_y / distancia
+                        self.projetil = ProjetilMagico(self.mago.x + 4, self.mago.y + 4, direcao_x, direcao_y, self.bola_fogo.dano, 32)
+                        self.mago.modificarMana(-self.bola_fogo.mana)
+
+            elif self.mago.magia_selecionada == self.barreira_cristal:
+                if self.mago.mana >= self.barreira_cristal.mana:
+                    self.barreira_ativa = True
+                    self.tempo_barreira = 100
+                    self.mago.modificarMana(-self.barreira_cristal.mana)
+
+            elif self.mago.magia_selecionada == self.explosao_arcana:
+                if self.mago.mana >= self.explosao_arcana.mana:
+                    distancia_x = pyxel.mouse_x - (self.mago.x + 8)
+                    distancia_y = pyxel.mouse_y - (self.mago.y + 8)
+                    distancia = (distancia_x * distancia_x + distancia_y * distancia_y) ** 0.5
+
+                    if distancia > 0:
+                        direcao_x = distancia_x / distancia
+                        direcao_y = distancia_y / distancia
+                        self.projetil = ProjetilMagico(self.mago.x + 4, self.mago.y + 4, direcao_x, direcao_y, self.explosao_arcana.dano, 96)
+                        self.mago.modificarMana(-self.explosao_arcana.mana)
+
+        if self.tempo_barreira > 0:
+            self.tempo_barreira -= 1
+        else:
+            self.barreira_ativa = False
 
         if self.projetil != None:
             self.projetil.mover()
 
-            if self.colisaoProjetil():
+            if self.projetil.x < 0 or self.projetil.x > 144 or self.projetil.y < 20 or self.projetil.y > 86:
+                self.projetil = None
+
+            elif self.colisaoProjetil():
                 self.inimigo_fake.vida -= self.projetil.dano
 
                 if self.inimigo_fake.vida < 0:
@@ -378,17 +572,29 @@ class Jogo:
     
     def draw(self):
         pyxel.cls(0)
-        pyxel.rect(0, 0, 160, 14, 1)
 
-        pyxel.text(2, 2, "V:" + str(int(self.mago.vida)) + " F:" + str(self.mago.forca) + " E:" + str(self.mago.espiritualidade) + " D:" + str(self.mago.defesa) + " VEL:" + str(self.mago.velocidade), 7)
+        if self.estado_jogo == "menu":
+            pyxel.text(58, 35, "EXIL MAGEED", 10)
+            pyxel.text(26, 58, "PRESSIONE ENTER PARA INICIAR", 7)
+            pyxel.text(54, 72, "ESC PARA SAIR", 6)
+            return
+
+        pyxel.rect(0, 0, 160, 20, 1)
+
+        pyxel.text(2, 2, "V:" + str(int(self.mago.vida)) + " F:" + str(self.mago.forca) + " D:" + str(self.mago.defesa) + " VEL:" + str(self.mago.velocidade), 7)
+
+        pyxel.text(2, 8, "M:" + str(int(self.mago.mana)) + " E:" + str(self.mago.espiritualidade) + "/" + str(self.mago.espiritualidade_maxima) + " ESP:" + str(self.mago.espirito), 7)
 
         x_imagem = self.mago.sprite_x + self.mago.quadro * 16
         pyxel.blt(self.mago.x, self.mago.y, 0, x_imagem, self.mago.sprite_y, 16, 16, 7)
 
+        if self.barreira_ativa:
+            pyxel.blt(self.mago.x, self.mago.y, 1, 0, 64, 16, 16, 0)
+
         if self.mago.magia_selecionada != None:
-            pyxel.text(2, 8, "M:" + str(int(self.mago.mana)) + " Magia:" + self.mago.magia_selecionada.nome, 10)
+            pyxel.text(2, 14, "Magia:" + self.mago.magia_selecionada.nome, 10)
         else:
-            pyxel.text(2, 8, "M:" + str(int(self.mago.mana)) + " Magia:nenhuma", 7)
+            pyxel.text(2, 14, "Magia:nenhuma", 7)
 
         pyxel.rect(self.ataque.x, self.ataque.y, self.ataque.largura, self.ataque.altura, 8)
 
@@ -396,7 +602,7 @@ class Jogo:
         pyxel.text(self.inimigo_fake.x, self.inimigo_fake.y - 6, "V:" + str(self.inimigo_fake.vida), 7)
 
         if self.projetil != None:
-            pyxel.blt(self.projetil.x, self.projetil.y, 1, 0, 0, 16, 16, 0)
+            pyxel.blt(self.projetil.x, self.projetil.y, 1, 0, self.projetil.imagem_y, 16, 16, 0)
 
         if self.bau.aberto == False:
             pyxel.rect(self.bau.x, self.bau.y, self.bau.largura, self.bau.altura, 9)
@@ -406,27 +612,88 @@ class Jogo:
         else:
             pyxel.rect(self.bau.x, self.bau.y, self.bau.largura, self.bau.altura, 4)
             if self.tempo_mensagem > 0:
-                pyxel.text(24, 95, "Disparo Arcano aprendido", 10)
+                pyxel.text(24, 95, "Magias iniciais aprendidas", 10)
 
         pyxel.rect(0, 102, 160, 18, 1)
         for i in range(9):
             x_espaco = 4 + i * 17
 
             if i < 5:
-                cor = 5
+                if self.mago.item_selecionado != None and self.mago.itens_equipados[i] == self.mago.item_selecionado:
+                    cor = 10
+                else:
+                    cor = 5
             else:
-                cor = 13
+                if self.mago.magias_equipadas[i - 5] == self.mago.magia_selecionada:
+                    cor = 10
+                else:
+                    cor = 13
 
             pyxel.rect(x_espaco, 104, 15, 14, cor)
             pyxel.text(x_espaco + 5, 108, str(i + 1), 7)
 
-        if self.mago.magias_equipadas[0] == self.disparo_arcano:
-            pyxel.blt(89, 103, 1, 0, 0, 16, 16, 0, scale=0.7)
+        for i in range(5):
+            if self.mago.itens_equipados[i] == self.pocao_vida:
+                x_item = 4 + i * 17
+                pyxel.blt(x_item, 103, 2, 0, 0, 16, 16, 0, scale=0.7)
+
+        for i in range(4):
+            magia = self.mago.magias_equipadas[i]
+            imagem_y = None
+
+            if magia == self.disparo_arcano:
+                imagem_y = 0
+            elif magia == self.bola_fogo:
+                imagem_y = 32
+            elif magia == self.barreira_cristal:
+                imagem_y = 64
+            elif magia == self.explosao_arcana:
+                imagem_y = 96
+
+            if imagem_y != None:
+                x_magia = 89 + i * 17
+                pyxel.blt(x_magia, 103, 1, 0, imagem_y, 16, 16, 0, scale=0.7)
+
+        if self.tela_aberta == "magias":
+            pyxel.rect(8, 16, 144, 84, 1)
+            pyxel.text(35, 21, "INVENTARIO DE MAGIAS", 10)
+
+            for i in range(len(self.mago.magias)):
+                if self.magia_inventario_selecionada == self.mago.magias[i]:
+                    cor_magia = 10
+                else:
+                    cor_magia = 7
+
+                pyxel.text(16, 32 + i * 10, str(i + 1) + " - " + self.mago.magias[i].nome, cor_magia)
+
+            pyxel.text(46, 90, "M para fechar", 6)
+
+        if self.tela_aberta == "itens":
+            pyxel.rect(8, 16, 144, 84, 1)
+            pyxel.text(35, 21, "INVENTARIO DE ITENS", 10)
+
+            if len(self.mago.inventario) == 0:
+                pyxel.text(52, 52, "Nenhum item", 7)
+            else:
+                for i in range(len(self.mago.inventario)):
+                    if self.item_inventario_selecionado == self.mago.inventario[i]:
+                        cor_item = 10
+                    else:
+                        cor_item = 7
+
+                    pyxel.text(16, 32 + i * 10, str(i + 1) + " - " + self.mago.inventario[i].nome, cor_item)
+
+            pyxel.text(48, 90, "I para fechar", 6)
+
+        if self.jogo_pausado:
+            pyxel.rect(40, 42, 80, 32, 1)
+            pyxel.rectb(40, 42, 80, 32, 7)
+            pyxel.text(67, 51, "PAUSADO", 10)
+            pyxel.text(48, 63, "P para continuar", 7)
 
         if self.mago.vida == 0:
             pyxel.cls(0)
             pyxel.text(55, 52, "VOCE MORREU", 8)
             pyxel.text(55, 62, "FIM DE JOGO", 7)
-        
         
 Jogo()
