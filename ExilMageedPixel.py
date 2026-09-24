@@ -241,7 +241,7 @@ class InimigoFake:
         self.defesa = defesa
 
 class Bau:
-    def __init__(self, x, y, largura, altura, tipo, conteudo):
+    def __init__(self, x, y, largura, altura, tipo, conteudo, capacidade):
         self.x = x
         self.y = y
         self.largura = largura
@@ -249,6 +249,7 @@ class Bau:
         self.tipo = tipo
         self.conteudo = conteudo
         self.aberto = False
+        self.capacidade = capacidade
 
 class ProjetilMagico:
     def __init__(self, x, y, direcao_x, direcao_y, dano, imagem_y):
@@ -276,6 +277,7 @@ class Jogo:
         pyxel.images[2].load(0, 16, "armadura_soldado.png")
         pyxel.images[2].load(0, 32, "coracao_tita.png")
         pyxel.images[2].load(0, 48, "pele_montanha.png")
+        pyxel.images[2].load(0, 64, "bau.png")
         self.mago = Jogador("Exil Mageed", 200, 50, 100, 40, 30, 10, 40, 100, 100, 10, 10, [], [], 20, 20)
         self.disparo_arcano = Magia("Disparo Arcano", 20, 10, 20, 50, 1, 1, 100)
         self.bola_fogo = Magia("Bola de Fogo", 35, 20, 30, 45, 2, 1, 100)
@@ -285,10 +287,11 @@ class Jogo:
         self.armadura_soldado = Item("Armadura de Soldado", "passivo", "defesa", 15, False, "comum", 0)
         self.coracao_tita = Item("Coracao do Tita", "ativo", "forca", 50, True, "epico", 300)
         self.pele_montanha = Item("Pele da Montanha", "ativo", "defesa", 60, True, "epico", 300)
-        self.bau_magias = Bau(35, 70, 16, 16, "magias", [self.disparo_arcano, self.bola_fogo, self.barreira_cristal, self.explosao_arcana])
-        self.bau_itens = Bau(70, 70, 16, 16, "itens", [self.pocao_vida, self.armadura_soldado, self.coracao_tita, self.pele_montanha])
+        self.bau_magias = Bau(35, 70, 16, 16, "magias", [self.disparo_arcano, self.bola_fogo, self.barreira_cristal, self.explosao_arcana], 6)
+        self.bau_itens = Bau(70, 70, 16, 16, "itens", [self.pocao_vida, self.armadura_soldado, self.coracao_tita, self.pele_montanha], 6)
         self.baus = [self.bau_magias, self.bau_itens]
         self.bau_aberto = None
+        self.modo_bau = "retirar"
         self.projetil = None
         self.tela_aberta = None
         self.estado_jogo = "menu"
@@ -476,39 +479,82 @@ class Jogo:
                     self.item_inventario_selecionado = None
         
         if self.tela_aberta == "bau":
+            if self.bau_aberto != None:
+                if self.bau_aberto.tipo == "itens":
+                    if pyxel.btnp(pyxel.KEY_G):
+                        if self.modo_bau == "retirar":
+                            self.modo_bau = "guardar"
+                        else:
+                            self.modo_bau = "retirar"
+
             if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
                 if self.bau_aberto != None:
-                    for i in range(len(self.bau_aberto.conteudo)):
-                        inicio_y = 38 + i * 10
-                        final_y = inicio_y + 7
+                    if self.modo_bau == "retirar":
+                        for i in range(len(self.bau_aberto.conteudo)):
+                            inicio_y = 38 + i * 10
+                            final_y = inicio_y + 7
 
-                        if pyxel.mouse_x >= 16 and pyxel.mouse_x <= 146:
-                            if pyxel.mouse_y >= inicio_y and pyxel.mouse_y <= final_y:
-                                conteudo_escolhido = self.bau_aberto.conteudo[i]
+                            if pyxel.mouse_x >= 16 and pyxel.mouse_x <= 146:
+                                if pyxel.mouse_y >= inicio_y and pyxel.mouse_y <= final_y:
+                                    conteudo_escolhido = self.bau_aberto.conteudo[i]
 
-                                if self.bau_aberto.tipo == "magias":
-                                    if len(self.mago.magias) < self.mago.capacidade_magias:
-                                        self.mago.aprenderMagia(conteudo_escolhido)
-                                        self.bau_aberto.conteudo.pop(i)
-                                        self.mensagem_bau = "Magia coletada"
-                                    else:
-                                        self.mensagem_bau = "Sem espaco para magias"
+                                    if self.bau_aberto.tipo == "magias":
+                                        if len(self.mago.magias) < self.mago.capacidade_magias:
+                                            self.mago.aprenderMagia(conteudo_escolhido)
+                                            self.bau_aberto.conteudo.pop(i)
+                                            self.mensagem_bau = "Magia coletada"
+                                        else:
+                                            self.mensagem_bau = "Sem espaco para magias"
 
-                                elif self.bau_aberto.tipo == "itens":
-                                    if len(self.mago.inventario) < self.mago.capacidade_inventario:
-                                        self.mago.inventario.append(conteudo_escolhido)
-                                        self.bau_aberto.conteudo.pop(i)
-                                        self.mensagem_bau = "Item coletado"
-                                    else:
-                                        self.mensagem_bau = "Sem espaco para itens"
+                                    elif self.bau_aberto.tipo == "itens":
+                                        if len(self.mago.inventario) < self.mago.capacidade_inventario:
+                                            self.mago.inventario.append(conteudo_escolhido)
+                                            self.bau_aberto.conteudo.pop(i)
+                                            self.mensagem_bau = "Item coletado"
+                                        else:
+                                            self.mensagem_bau = "Sem espaco para itens"
 
-                                self.tempo_mensagem_bau = 60
-                                break
+                                    self.tempo_mensagem_bau = 60
+                                    break
+
+                    elif self.modo_bau == "guardar":
+                        if self.bau_aberto.tipo == "itens":
+                            for i in range(len(self.mago.inventario)):
+                                inicio_y = 38 + i * 10
+                                final_y = inicio_y + 7
+
+                                if pyxel.mouse_x >= 16 and pyxel.mouse_x <= 146:
+                                    if pyxel.mouse_y >= inicio_y and pyxel.mouse_y <= final_y:
+                                        item_guardado = self.mago.inventario[i]
+
+                                        if len(self.bau_aberto.conteudo) < self.bau_aberto.capacidade:
+                                            self.bau_aberto.conteudo.append(item_guardado)
+                                            self.mago.inventario.pop(i)
+
+                                            for espaco in range(5):
+                                                if self.mago.itens_equipados[espaco] == item_guardado:
+                                                    self.mago.itens_equipados[espaco] = None
+
+                                            if self.mago.item_selecionado == item_guardado:
+                                                self.mago.item_selecionado = None
+
+                                            if self.item_inventario_selecionado == item_guardado:
+                                                self.item_inventario_selecionado = None
+
+                                            self.mensagem_bau = "Item guardado"
+                                        else:
+                                            self.mensagem_bau = "Bau cheio"
+
+                                        self.tempo_mensagem_bau = 60
+                                        break
 
             if self.tempo_mensagem_bau > 0:
                 self.tempo_mensagem_bau -= 1
 
             if pyxel.btnp(pyxel.KEY_E):
+                if self.bau_aberto != None:
+                    self.bau_aberto.aberto = False
+
                 self.tela_aberta = None
                 self.bau_aberto = None
 
@@ -618,6 +664,7 @@ class Jogo:
                     bau.aberto = True
                     self.bau_aberto = bau
                     self.tela_aberta = "bau"
+                    self.modo_bau = "retirar"
                     abriu_bau = True
                     break
 
@@ -777,11 +824,13 @@ class Jogo:
 
         for bau in self.baus:
             if bau.aberto == False:
-                cor_bau = 9
+                imagem_x = 0
+                imagem_y = 64
             else:
-                cor_bau = 4
+                imagem_x = 16
+                imagem_y = 80
 
-            pyxel.rect(bau.x, bau.y, bau.largura, bau.altura, cor_bau)
+            pyxel.blt(bau.x, bau.y, 2, imagem_x, imagem_y, 16, 16, 0)
 
             if self.colisaoBau(bau):
                 if self.tela_aberta == None:
@@ -898,19 +947,38 @@ class Jogo:
             if self.bau_aberto != None:
                 pyxel.rect(8, 16, 144, 84, 1)
                 pyxel.rectb(8, 16, 144, 84, 7)
-                pyxel.text(108, 21, "E: fechar", 6)
+
+                if self.bau_aberto.tipo == "itens" and self.modo_bau == "guardar":
+                    pyxel.text(12, 21, str(len(self.mago.inventario)) + "/" + str(self.mago.capacidade_inventario), 7)
+                else:
+                    pyxel.text(12, 21, str(len(self.bau_aberto.conteudo)) + "/" + str(self.bau_aberto.capacidade), 7)
+                    
+                pyxel.text(114, 21, "E: fechar", 6)
 
                 if self.bau_aberto.tipo == "magias":
                     pyxel.text(48, 21, "BAU DE MAGIAS", 10)
+                elif self.modo_bau == "guardar":
+                    pyxel.text(34, 21, "INVENTARIO DE ITENS", 10)
                 else:
                     pyxel.text(52, 21, "BAU DE ITENS", 10)
 
-                if len(self.bau_aberto.conteudo) == 0:
-                    pyxel.text(65, 55, "VAZIO", 7)
+                if self.bau_aberto.tipo == "itens":
+                    pyxel.text(12, 30, "G: " + self.modo_bau.upper(), 6)
+
+                if self.modo_bau == "guardar" and self.bau_aberto.tipo == "itens":
+                    if len(self.mago.inventario) == 0:
+                        pyxel.text(48, 55, "INVENTARIO VAZIO", 7)
+                    else:
+                        for i in range(len(self.mago.inventario)):
+                            objeto = self.mago.inventario[i]
+                            pyxel.text(16, 38 + i * 10, objeto.nome, 7)
                 else:
-                    for i in range(len(self.bau_aberto.conteudo)):
-                        objeto = self.bau_aberto.conteudo[i]
-                        pyxel.text(16, 38 + i * 10, objeto.nome, 7)
+                    if len(self.bau_aberto.conteudo) == 0:
+                        pyxel.text(65, 55, "VAZIO", 7)
+                    else:
+                        for i in range(len(self.bau_aberto.conteudo)):
+                            objeto = self.bau_aberto.conteudo[i]
+                            pyxel.text(16, 38 + i * 10, objeto.nome, 7)
 
                 if self.tempo_mensagem_bau > 0:
                     pyxel.text(16, 92, self.mensagem_bau, 10)
