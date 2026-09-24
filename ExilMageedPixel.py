@@ -188,7 +188,7 @@ class Magia:
         self.chance_aprender += modificacao
         
 class Inimigo:
-    def __init__(self, nome, vida, forca, defesa, velocidade, sorte, espirito):
+    def __init__(self, nome, vida, forca, defesa, velocidade, sorte, espirito, x, y, largura, altura):
         self.nome = nome
         self.vida = vida
         self.forca = forca
@@ -196,9 +196,29 @@ class Inimigo:
         self.velocidade = velocidade
         self.sorte = sorte
         self.espirito = espirito
+        self.x = x
+        self.y = y
+        self.largura = largura
+        self.altura = altura
+        self.x_inicial = x
+        self.y_inicial = y
+        self.quadro = 0
+        self.tempo_animacao = 0
+        self.tempo_movimento = 0
+        self.estado = "patrulha"
+        self.raio_deteccao = 25
+        self.tempo_busca = 0
+        self.ultimo_x_jogador = x
+        self.ultimo_y_jogador = y
+        self.chegou_ultima_posicao = False
+        self.direcao_busca = 0
+        self.passos_busca = 0
     
     def modificarVida(self, modificacao):
         self.vida += modificacao
+
+        if self.vida < 0:
+            self.vida = 0
 
     def modificarForca(self, modificacao):
         self.forca += modificacao
@@ -230,15 +250,6 @@ class DrenagemForca:
         self.largura = largura
         self.altura = altura
         self.quantidade = quantidade
-    
-class InimigoFake:
-    def __init__(self, x, y, largura, altura, vida, defesa):
-        self.x = x
-        self.y = y
-        self.largura = largura
-        self.altura = altura
-        self.vida = vida
-        self.defesa = defesa
 
 class Bau:
     def __init__(self, x, y, largura, altura, tipo, conteudo, capacidade):
@@ -269,6 +280,7 @@ class Jogo:
         pyxel.init(160, 120, title="Exil Mageed")
         pyxel.mouse(True)
         pyxel.images[0].load(0, 0, "mage.png")
+        pyxel.images[0].load(0, 32, "lutador_demoniaco.png")
         pyxel.images[1].load(0, 0, "disparo_arcano.png")
         pyxel.images[1].load(0, 32, "bola_fogo.png")
         pyxel.images[1].load(0, 64, "barreira_cristal.png")
@@ -309,10 +321,9 @@ class Jogo:
         self.aumento_pele_montanha = 0
         self.ataque = Ataque(100, 70, 16, 16, 20)
         self.drenagem_forca = DrenagemForca(130, 70, 16, 16, 10)
-        self.inimigo_fake = InimigoFake(120, 35, 16, 16, 100, 10)
         self.encostou_ataque = False
         self.encostou_drenagem = False
-        self.lutador_demoniaco = Inimigo("Lutador Demoníaco", 240, 65, 55, 65, 35, 80)
+        self.lutador_demoniaco = Inimigo("Lutador Demoníaco", 240, 65, 55, 65, 35, 80, 120, 35, 16, 16)
         pyxel.run(self.update, self.draw)
 
     def colisaoAtaque(self):
@@ -357,8 +368,11 @@ class Jogo:
             return False
 
     def colisaoProjetil(self):
-        colisaoX = self.projetil.x + 16 >= self.inimigo_fake.x and self.projetil.x <= self.inimigo_fake.x + self.inimigo_fake.largura
-        colisaoY = self.projetil.y + 16 >= self.inimigo_fake.y and self.projetil.y <= self.inimigo_fake.y + self.inimigo_fake.altura
+        if self.lutador_demoniaco.vida == 0:
+            return False
+
+        colisaoX = self.projetil.x + 16 >= self.lutador_demoniaco.x and self.projetil.x <= self.lutador_demoniaco.x + self.lutador_demoniaco.largura
+        colisaoY = self.projetil.y + 16 >= self.lutador_demoniaco.y and self.projetil.y <= self.lutador_demoniaco.y + self.lutador_demoniaco.altura
 
         if colisaoX and colisaoY:
             return True
@@ -770,6 +784,125 @@ class Jogo:
         else:
             self.barreira_ativa = False
 
+        distancia_x = self.mago.x - self.lutador_demoniaco.x
+        distancia_y = self.mago.y - self.lutador_demoniaco.y
+        distancia_jogador = (distancia_x * distancia_x + distancia_y * distancia_y) ** 0.5
+
+        if self.lutador_demoniaco.estado == "patrulha":
+            if distancia_jogador <= self.lutador_demoniaco.raio_deteccao:
+                self.lutador_demoniaco.estado = "perseguicao"
+
+        elif self.lutador_demoniaco.estado == "perseguicao":
+            if distancia_jogador > self.lutador_demoniaco.raio_deteccao:
+                self.lutador_demoniaco.estado = "busca"
+                self.lutador_demoniaco.tempo_busca = 300 - self.mago.sorte * 2
+                self.lutador_demoniaco.tempo_movimento = 0
+                self.lutador_demoniaco.chegou_ultima_posicao = False
+                self.lutador_demoniaco.direcao_busca = 0
+                self.lutador_demoniaco.passos_busca = 0
+
+            else:
+                self.lutador_demoniaco.ultimo_x_jogador = self.mago.x
+                self.lutador_demoniaco.ultimo_y_jogador = self.mago.y
+
+                self.lutador_demoniaco.tempo_movimento += 1
+
+                if self.lutador_demoniaco.tempo_movimento == 2:
+
+                    self.lutador_demoniaco.tempo_movimento = 0
+
+                    if self.mago.x < self.lutador_demoniaco.x:
+                        self.lutador_demoniaco.x -= 1
+                    elif self.mago.x > self.lutador_demoniaco.x:
+                        self.lutador_demoniaco.x += 1
+
+                    if self.mago.y < self.lutador_demoniaco.y:
+                        self.lutador_demoniaco.y -= 1
+                    elif self.mago.y > self.lutador_demoniaco.y:
+                        self.lutador_demoniaco.y += 1
+
+        elif self.lutador_demoniaco.estado == "busca":
+            if distancia_jogador <= self.lutador_demoniaco.raio_deteccao:
+                self.lutador_demoniaco.estado = "perseguicao"
+                self.lutador_demoniaco.tempo_busca = 0
+
+            else:
+                if self.lutador_demoniaco.tempo_busca > 0:
+                    self.lutador_demoniaco.tempo_busca -= 1
+                    self.lutador_demoniaco.tempo_movimento += 1
+
+                    if self.lutador_demoniaco.tempo_movimento == 2:
+                        self.lutador_demoniaco.tempo_movimento = 0
+
+                        if self.lutador_demoniaco.chegou_ultima_posicao == False:
+                            if self.lutador_demoniaco.x < self.lutador_demoniaco.ultimo_x_jogador:
+                                self.lutador_demoniaco.x += 1
+                            elif self.lutador_demoniaco.x > self.lutador_demoniaco.ultimo_x_jogador:
+                                self.lutador_demoniaco.x -= 1
+
+                            if self.lutador_demoniaco.y < self.lutador_demoniaco.ultimo_y_jogador:
+                                self.lutador_demoniaco.y += 1
+                            elif self.lutador_demoniaco.y > self.lutador_demoniaco.ultimo_y_jogador:
+                                self.lutador_demoniaco.y -= 1
+
+                            if self.lutador_demoniaco.x == self.lutador_demoniaco.ultimo_x_jogador and self.lutador_demoniaco.y == self.lutador_demoniaco.ultimo_y_jogador:
+                                self.lutador_demoniaco.chegou_ultima_posicao = True
+
+                        else:
+                            if self.lutador_demoniaco.direcao_busca == 0:
+                                self.lutador_demoniaco.x += 1
+                            elif self.lutador_demoniaco.direcao_busca == 1:
+                                self.lutador_demoniaco.y += 1
+                            elif self.lutador_demoniaco.direcao_busca == 2:
+                                self.lutador_demoniaco.x -= 1
+                            else:
+                                self.lutador_demoniaco.y -= 1
+
+                            self.lutador_demoniaco.passos_busca += 1
+
+                            if self.lutador_demoniaco.passos_busca == 10:
+                                self.lutador_demoniaco.passos_busca = 0
+                                self.lutador_demoniaco.direcao_busca += 1
+
+                                if self.lutador_demoniaco.direcao_busca > 3:
+                                    self.lutador_demoniaco.direcao_busca = 0
+
+                else:
+                    self.lutador_demoniaco.estado = "retorno"
+
+        elif self.lutador_demoniaco.estado == "retorno":
+            if distancia_jogador <= self.lutador_demoniaco.raio_deteccao:
+                self.lutador_demoniaco.estado = "perseguicao"
+
+            else:
+                self.lutador_demoniaco.tempo_movimento += 1
+
+                if self.lutador_demoniaco.tempo_movimento == 2:
+                    self.lutador_demoniaco.tempo_movimento = 0
+
+                    if self.lutador_demoniaco.x < self.lutador_demoniaco.x_inicial:
+                        self.lutador_demoniaco.x += 1
+                    elif self.lutador_demoniaco.x > self.lutador_demoniaco.x_inicial:
+                        self.lutador_demoniaco.x -= 1
+
+                    if self.lutador_demoniaco.y < self.lutador_demoniaco.y_inicial:
+                        self.lutador_demoniaco.y += 1
+                    elif self.lutador_demoniaco.y > self.lutador_demoniaco.y_inicial:
+                        self.lutador_demoniaco.y -= 1
+
+                    if self.lutador_demoniaco.x == self.lutador_demoniaco.x_inicial and self.lutador_demoniaco.y == self.lutador_demoniaco.y_inicial:
+                        self.lutador_demoniaco.estado = "patrulha"
+
+        if self.lutador_demoniaco.vida > 0:
+            self.lutador_demoniaco.tempo_animacao += 1
+
+            if self.lutador_demoniaco.tempo_animacao == 8:
+                self.lutador_demoniaco.quadro += 1
+                self.lutador_demoniaco.tempo_animacao = 0
+
+                if self.lutador_demoniaco.quadro > 3:
+                    self.lutador_demoniaco.quadro = 0
+
         if self.projetil != None:
             self.projetil.mover()
 
@@ -777,11 +910,7 @@ class Jogo:
                 self.projetil = None
 
             elif self.colisaoProjetil():
-                self.inimigo_fake.vida -= self.projetil.dano
-
-                if self.inimigo_fake.vida < 0:
-                    self.inimigo_fake.vida = 0
-
+                self.lutador_demoniaco.modificarVida(-self.projetil.dano)
                 self.projetil = None
         
         if self.tempo_mensagem > 0:
@@ -816,8 +945,11 @@ class Jogo:
         pyxel.rect(self.ataque.x, self.ataque.y, self.ataque.largura, self.ataque.altura, 8)
         pyxel.rect(self.drenagem_forca.x, self.drenagem_forca.y, self.drenagem_forca.largura, self.drenagem_forca.altura, 11)
 
-        pyxel.rect(self.inimigo_fake.x, self.inimigo_fake.y, self.inimigo_fake.largura, self.inimigo_fake.altura, 11)
-        pyxel.text(self.inimigo_fake.x, self.inimigo_fake.y - 6, "V:" + str(self.inimigo_fake.vida), 7)
+        if self.lutador_demoniaco.vida > 0:
+            x_inimigo = self.lutador_demoniaco.quadro * 16
+            pyxel.blt(self.lutador_demoniaco.x, self.lutador_demoniaco.y, 0, x_inimigo, 32, 16, 16, 0)
+            pyxel.text(self.lutador_demoniaco.x, self.lutador_demoniaco.y - 6, "V:" + str(self.lutador_demoniaco.vida), 7)
+            pyxel.text(self.lutador_demoniaco.x, self.lutador_demoniaco.y - 12, self.lutador_demoniaco.estado, 10)
 
         if self.projetil != None:
             pyxel.blt(self.projetil.x, self.projetil.y, 1, 0, self.projetil.imagem_y, 16, 16, 0)
@@ -837,6 +969,7 @@ class Jogo:
                     pyxel.text(24, 95, "Pressione E para abrir", 7)
 
         pyxel.rect(0, 102, 160, 18, 1)
+
         for i in range(9):
             x_espaco = 4 + i * 17
 
