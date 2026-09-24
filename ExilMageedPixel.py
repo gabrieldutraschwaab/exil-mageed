@@ -1,7 +1,7 @@
 import pyxel
 
 class Jogador:
-    def __init__(self, nome, vida, forca, defesa, velocidade, sorte, esperiencia, espirito, espiritualidade, mana, capacidade_inventario, inventario, magias, x, y):
+    def __init__(self, nome, vida, forca, defesa, velocidade, sorte, esperiencia, espirito, espiritualidade, mana, capacidade_inventario, capacidade_magias, inventario, magias, x, y):
         self.nome = nome
         self.vida = vida
         self.forca = forca
@@ -14,6 +14,7 @@ class Jogador:
         self.espiritualidade = espiritualidade
         self.mana = mana
         self.capacidade_inventario = capacidade_inventario
+        self.capacidade_magias = capacidade_magias
         self.inventario = inventario
         self.x = x
         self.y = y
@@ -128,12 +129,13 @@ class Jogador:
         self.magias.append(adicao)
         
 class Item:
-    def __init__(self, nome, tipo, efeito, valor, consumivel):
+    def __init__(self, nome, tipo, efeito, valor, consumivel, raridade):
         self.nome = nome
         self.tipo = tipo
         self.efeito = efeito
         self.valor = valor
         self.consumivel = consumivel
+        self.raridade = raridade
 
     def usar(self, jogador):
         if self.efeito == "vida":
@@ -220,12 +222,13 @@ class InimigoFake:
         self.defesa = defesa
 
 class Bau:
-    def __init__(self, x, y, largura, altura, magias):
+    def __init__(self, x, y, largura, altura, magias, itens):
         self.x = x
         self.y = y
         self.largura = largura
         self.altura = altura
         self.magias = magias
+        self.itens = itens
         self.aberto = False
 
 class ProjetilMagico:
@@ -251,13 +254,14 @@ class Jogo:
         pyxel.images[1].load(0, 64, "barreira_cristal.png")
         pyxel.images[1].load(0, 96, "explosao_arcana.png")
         pyxel.images[2].load(0, 0, "pocao_vida.png")
-        self.mago = Jogador("Exil Mageed", 200, 50, 100, 40, 30, 10, 40, 100, 100, 10, [], [], 20, 20)
+        self.mago = Jogador("Exil Mageed", 200, 50, 100, 40, 30, 10, 40, 100, 100, 10, 10, [], [], 20, 20)
         self.disparo_arcano = Magia("Disparo Arcano", 20, 10, 20, 50, 1, 1, 100)
         self.bola_fogo = Magia("Bola de Fogo", 35, 20, 30, 45, 2, 1, 100)
         self.barreira_cristal = Magia("Barreira de Cristal", 0, 25, 60, 0, 3, 1, 100)
         self.explosao_arcana = Magia("Explosao Arcana", 50, 35, 70, 0, 4, 1, 100)
-        self.pocao_vida = Item("Pocao de Vida", "ativo", "vida", 40, True)
-        self.bau = Bau(40, 70, 16, 16, [self.disparo_arcano, self.bola_fogo, self.barreira_cristal, self.explosao_arcana])
+        self.pocao_vida = Item("Pocao de Vida", "ativo", "vida", 40, True, "comum")
+        self.armadura_soldado = Item("Armadura de Soldado", "passivo", "defesa", 15, False, "comum")
+        self.bau = Bau(40, 70, 16, 16, [self.disparo_arcano, self.bola_fogo, self.barreira_cristal, self.explosao_arcana], [self.pocao_vida, self.armadura_soldado])
         self.projetil = None
         self.tela_aberta = None
         self.estado_jogo = "menu"
@@ -267,6 +271,8 @@ class Jogo:
         self.jogo_pausado = False
         self.tempo_barreira = 0
         self.tempo_mensagem = 0
+        self.mensagem_bau = ""
+        self.tempo_mensagem_bau = 0
         self.ataque = Ataque(100, 70, 16, 16, 20)
         self.inimigo_fake = InimigoFake(120, 35, 16, 16, 100, 10)
         self.encostou_ataque = False
@@ -380,6 +386,50 @@ class Jogo:
 
                                 self.mago.itens_equipados[espaco] = self.item_inventario_selecionado
                                 self.mago.item_selecionado = self.item_inventario_selecionado
+        
+        if self.tela_aberta == "bau":
+            if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
+                for i in range(len(self.bau.magias)):
+                    inicio_y = 38 + i * 8
+                    final_y = inicio_y + 7
+
+                    if pyxel.mouse_x >= 16 and pyxel.mouse_x <= 146:
+                        if pyxel.mouse_y >= inicio_y and pyxel.mouse_y <= final_y:
+                            if len(self.mago.magias) < self.mago.capacidade_magias:
+                                magia_escolhida = self.bau.magias[i]
+                                self.mago.aprenderMagia(magia_escolhida)
+                                self.bau.magias.pop(i)
+                                self.mensagem_bau = "Magia coletada"
+                            else:
+                                self.mensagem_bau = "Sem espaco para magias"
+
+                            self.tempo_mensagem_bau = 60
+                            break
+
+                for i in range(len(self.bau.itens)):
+                    inicio_y = 80 + i * 8
+                    final_y = inicio_y + 7
+
+                    if pyxel.mouse_x >= 16 and pyxel.mouse_x <= 146:
+                        if pyxel.mouse_y >= inicio_y and pyxel.mouse_y <= final_y:
+                            if len(self.mago.inventario) < self.mago.capacidade_inventario:
+                                item_escolhido = self.bau.itens[i]
+                                self.mago.inventario.append(item_escolhido)
+                                self.bau.itens.pop(i)
+                                self.mensagem_bau = "Item coletado"
+                            else:
+                                self.mensagem_bau = "Sem espaco para itens"
+
+                            self.tempo_mensagem_bau = 60
+                            break
+
+            if self.tempo_mensagem_bau > 0:
+                self.tempo_mensagem_bau -= 1
+
+            if pyxel.btnp(pyxel.KEY_E):
+                self.tela_aberta = None
+
+            return
 
         if self.tela_aberta != None:
             return
@@ -444,6 +494,9 @@ class Jogo:
                 elif self.mago.defesa <= 50:
                     dano_recebido += dano_recebido * 25 // 100
 
+                if self.armadura_soldado in self.mago.inventario:
+                    dano_recebido -= dano_recebido * self.armadura_soldado.valor // 100
+
                 if self.barreira_ativa == False:
                     self.mago.modificarVida(-dano_recebido)
 
@@ -453,21 +506,9 @@ class Jogo:
             self.encostou_ataque = False
 
         if pyxel.btnp(pyxel.KEY_E):
-            if self.colisaoBau() and self.bau.aberto == False:
-                self.mago.aprenderMagia(self.disparo_arcano)
-                self.mago.aprenderMagia(self.bola_fogo)
-                self.mago.aprenderMagia(self.barreira_cristal)
-                self.mago.aprenderMagia(self.explosao_arcana)
-                self.mago.inventario.append(self.pocao_vida)
-
-                self.mago.magias_equipadas[0] = self.disparo_arcano
-                self.mago.magias_equipadas[1] = self.bola_fogo
-                self.mago.magias_equipadas[2] = self.barreira_cristal
-                self.mago.magias_equipadas[3] = self.explosao_arcana
-
-                self.mago.magia_selecionada = self.disparo_arcano
+            if self.colisaoBau():
                 self.bau.aberto = True
-                self.tempo_mensagem = 60
+                self.tela_aberta = "bau"
 
             elif self.mago.item_selecionado != None:
                 if self.mago.item_selecionado.tipo == "ativo":
@@ -679,11 +720,38 @@ class Jogo:
                     if self.item_inventario_selecionado == self.mago.inventario[i]:
                         cor_item = 10
                     else:
-                        cor_item = 7
+                        if self.mago.inventario[i].raridade == "epico":
+                            cor_item = 14
+                        elif self.mago.inventario[i].raridade == "raro":
+                            cor_item = 12
+                        elif self.mago.inventario[i].raridade == "comum":
+                            cor_item = 7
+                        elif self.mago.inventario[i].raridade == "ruim":
+                            cor_item = 9
+                        elif self.mago.inventario[i].raridade == "horrivel":
+                            cor_item = 8
 
-                    pyxel.text(16, 32 + i * 10, str(i + 1) + " - " + self.mago.inventario[i].nome, cor_item)
+                    pyxel.text(16, 32 + i * 10, str(i + 1) + " - " + self.mago.inventario[i].nome + " [" + self.mago.inventario[i].raridade + "]", cor_item)
 
             pyxel.text(48, 90, "I para fechar", 6)
+
+        if self.tela_aberta == "bau":
+            pyxel.rect(8, 16, 144, 84, 1)
+            pyxel.text(59, 21, "BAU", 10)
+            pyxel.text(108, 21, "E: fechar", 6)
+
+            pyxel.text(12, 30, "MAGIAS:", 12)
+
+            for i in range(len(self.bau.magias)):
+                pyxel.text(16, 38 + i * 8, self.bau.magias[i].nome, 7)
+
+            pyxel.text(12, 72, "ITENS:", 9)
+
+            for i in range(len(self.bau.itens)):
+                pyxel.text(16, 80 + i * 8, self.bau.itens[i].nome, 7)
+
+            if self.tempo_mensagem_bau > 0:
+                pyxel.text(16, 94, self.mensagem_bau, 10)
 
         if self.jogo_pausado:
             pyxel.rect(40, 42, 80, 32, 1)
