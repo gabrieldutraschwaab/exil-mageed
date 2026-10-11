@@ -318,7 +318,25 @@ class Jogo:
         pyxel.images[2].load(0, 32, "coracao_tita.png")
         pyxel.images[2].load(0, 48, "pele_montanha.png")
         pyxel.images[2].load(0, 64, "bau.png")
-        self.mago = Jogador("Exil Mageed", 200, 50, 100, 40, 30, 10, 40, 100, 100, 10, 10, [], [], 20, 20)
+        self.paleta_original = [pyxel.colors[i] for i in range(16)]
+        self.paleta_floresta = self.paleta_original.copy()
+
+        self.paleta_floresta[2] = 0x123A2A
+        self.paleta_floresta[3] = 0x244729
+        self.paleta_floresta[4] = 0x784C43
+        self.paleta_floresta[8] = 0x1C5B2A
+        self.paleta_floresta[11] = 0x1EAF52
+        self.paleta_floresta[12] = 0x64FF61
+        self.paleta_floresta[14] = 0x9EE837
+
+        for i in range(16):
+            pyxel.colors[i] = self.paleta_floresta[i]
+
+        pyxel.images[2].load(0, 96, "fundo_floresta_prologo.png")
+
+        for i in range(16):
+            pyxel.colors[i] = self.paleta_original[i]
+        self.mago = Jogador("Exil Mageed", 200, 50, 100, 40, 30, 10, 40, 100, 100, 10, 10, [], [], 72, 86)
         self.disparo_arcano = Magia("Disparo Arcano", 20, 10, 20, 50, 1, 1, 100)
         self.bola_fogo = Magia("Bola de Fogo", 35, 20, 30, 45, 2, 1, 100)
         self.barreira_cristal = Magia("Barreira de Cristal", 0, 25, 60, 0, 3, 1, 100)
@@ -331,6 +349,8 @@ class Jogo:
         self.bau_magias = Bau(35, 70, 16, 16, "magias", [self.disparo_arcano, self.bola_fogo, self.barreira_cristal, self.explosao_arcana, self.correntes_abismo], 6)
         self.bau_itens = Bau(70, 70, 16, 16, "itens", [self.pocao_vida, self.armadura_soldado, self.coracao_tita, self.pele_montanha], 6)
         self.baus = [self.bau_magias, self.bau_itens]
+        self.carta_prologo = Item("Carta", "especial", "historia", 0, False, "comum", 0)
+        self.bau_prologo = Bau(72, 45, 16, 16, "itens", [self.carta_prologo], 6)
         self.bau_aberto = None
         self.modo_bau = "retirar"
         self.projetil = None
@@ -489,27 +509,91 @@ class Jogo:
             return True
         else:
             return False
-        
-    def update(self):
-        if self.estado_jogo == "menu":
-            if pyxel.btnp(pyxel.KEY_RETURN):
-                self.estado_jogo = "exploracao"
 
-            return
+    def atualizarBau(self):
+        if self.tela_aberta == "bau":
+            if self.bau_aberto != None:
+                if self.bau_aberto.tipo == "itens":
+                    if pyxel.btnp(pyxel.KEY_G):
+                        if self.modo_bau == "retirar":
+                            self.modo_bau = "guardar"
+                        else:
+                            self.modo_bau = "retirar"
 
-        if self.mago.vida == 0:
-            return
+            if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
+                if self.bau_aberto != None:
+                    if self.modo_bau == "retirar":
+                        for i in range(len(self.bau_aberto.conteudo)):
+                            inicio_y = 38 + i * 10
+                            final_y = inicio_y + 7
 
-        if pyxel.btnp(pyxel.KEY_P):
-            if self.jogo_pausado == False:
-                self.jogo_pausado = True
+                            if pyxel.mouse_x >= 16 and pyxel.mouse_x <= 146:
+                                if pyxel.mouse_y >= inicio_y and pyxel.mouse_y <= final_y:
+                                    conteudo_escolhido = self.bau_aberto.conteudo[i]
+
+                                    if self.bau_aberto.tipo == "magias":
+                                        if len(self.mago.magias) < self.mago.capacidade_magias:
+                                            self.mago.aprenderMagia(conteudo_escolhido)
+                                            self.bau_aberto.conteudo.pop(i)
+                                            self.mensagem_bau = "Magia coletada"
+                                        else:
+                                            self.mensagem_bau = "Sem espaco para magias"
+
+                                    elif self.bau_aberto.tipo == "itens":
+                                        if len(self.mago.inventario) < self.mago.capacidade_inventario:
+                                            self.mago.inventario.append(conteudo_escolhido)
+                                            self.bau_aberto.conteudo.pop(i)
+                                            self.mensagem_bau = "Item coletado"
+                                        else:
+                                            self.mensagem_bau = "Sem espaco para itens"
+
+                                    self.tempo_mensagem_bau = 60
+                                    break
+
+                    elif self.modo_bau == "guardar":
+                        if self.bau_aberto.tipo == "itens":
+                            for i in range(len(self.mago.inventario)):
+                                inicio_y = 38 + i * 10
+                                final_y = inicio_y + 7
+
+                                if pyxel.mouse_x >= 16 and pyxel.mouse_x <= 146:
+                                    if pyxel.mouse_y >= inicio_y and pyxel.mouse_y <= final_y:
+                                        item_guardado = self.mago.inventario[i]
+
+                                        if len(self.bau_aberto.conteudo) < self.bau_aberto.capacidade:
+                                            self.bau_aberto.conteudo.append(item_guardado)
+                                            self.mago.inventario.pop(i)
+
+                                            for espaco in range(5):
+                                                if self.mago.itens_equipados[espaco] == item_guardado:
+                                                    self.mago.itens_equipados[espaco] = None
+
+                                            if self.mago.item_selecionado == item_guardado:
+                                                self.mago.item_selecionado = None
+
+                                            if self.item_inventario_selecionado == item_guardado:
+                                                self.item_inventario_selecionado = None
+
+                                            self.mensagem_bau = "Item guardado"
+                                        else:
+                                            self.mensagem_bau = "Bau cheio"
+
+                                        self.tempo_mensagem_bau = 60
+                                        break
+
+            if self.tempo_mensagem_bau > 0:
+                self.tempo_mensagem_bau -= 1
+
+            if pyxel.btnp(pyxel.KEY_E):
+                if self.bau_aberto != None:
+                    self.bau_aberto.aberto = False
+
                 self.tela_aberta = None
-            else:
-                self.jogo_pausado = False
+                self.bau_aberto = None
 
-        if self.jogo_pausado:
             return
 
+    def atualizarInventario(self):
         if len(self.mago.inventario) > self.mago.capacidade_inventario:
             self.tela_aberta = "itens"
 
@@ -603,86 +687,86 @@ class Jogo:
                     self.mago.inventario.remove(item_excluido)
                     self.item_inventario_selecionado = None
         
-        if self.tela_aberta == "bau":
-            if self.bau_aberto != None:
-                if self.bau_aberto.tipo == "itens":
-                    if pyxel.btnp(pyxel.KEY_G):
-                        if self.modo_bau == "retirar":
-                            self.modo_bau = "guardar"
-                        else:
-                            self.modo_bau = "retirar"
+    def update(self):
+        if self.estado_jogo == "menu":
+            if pyxel.btnp(pyxel.KEY_RETURN):
+                self.estado_jogo = "prologo"
 
-            if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
-                if self.bau_aberto != None:
-                    if self.modo_bau == "retirar":
-                        for i in range(len(self.bau_aberto.conteudo)):
-                            inicio_y = 38 + i * 10
-                            final_y = inicio_y + 7
+            return
 
-                            if pyxel.mouse_x >= 16 and pyxel.mouse_x <= 146:
-                                if pyxel.mouse_y >= inicio_y and pyxel.mouse_y <= final_y:
-                                    conteudo_escolhido = self.bau_aberto.conteudo[i]
+        if self.estado_jogo == "prologo":
+            if self.tela_aberta == "bau":
+                self.atualizarBau()
+                return
 
-                                    if self.bau_aberto.tipo == "magias":
-                                        if len(self.mago.magias) < self.mago.capacidade_magias:
-                                            self.mago.aprenderMagia(conteudo_escolhido)
-                                            self.bau_aberto.conteudo.pop(i)
-                                            self.mensagem_bau = "Magia coletada"
-                                        else:
-                                            self.mensagem_bau = "Sem espaco para magias"
+            self.atualizarInventario()
 
-                                    elif self.bau_aberto.tipo == "itens":
-                                        if len(self.mago.inventario) < self.mago.capacidade_inventario:
-                                            self.mago.inventario.append(conteudo_escolhido)
-                                            self.bau_aberto.conteudo.pop(i)
-                                            self.mensagem_bau = "Item coletado"
-                                        else:
-                                            self.mensagem_bau = "Sem espaco para itens"
-
-                                    self.tempo_mensagem_bau = 60
-                                    break
-
-                    elif self.modo_bau == "guardar":
-                        if self.bau_aberto.tipo == "itens":
-                            for i in range(len(self.mago.inventario)):
-                                inicio_y = 38 + i * 10
-                                final_y = inicio_y + 7
-
-                                if pyxel.mouse_x >= 16 and pyxel.mouse_x <= 146:
-                                    if pyxel.mouse_y >= inicio_y and pyxel.mouse_y <= final_y:
-                                        item_guardado = self.mago.inventario[i]
-
-                                        if len(self.bau_aberto.conteudo) < self.bau_aberto.capacidade:
-                                            self.bau_aberto.conteudo.append(item_guardado)
-                                            self.mago.inventario.pop(i)
-
-                                            for espaco in range(5):
-                                                if self.mago.itens_equipados[espaco] == item_guardado:
-                                                    self.mago.itens_equipados[espaco] = None
-
-                                            if self.mago.item_selecionado == item_guardado:
-                                                self.mago.item_selecionado = None
-
-                                            if self.item_inventario_selecionado == item_guardado:
-                                                self.item_inventario_selecionado = None
-
-                                            self.mensagem_bau = "Item guardado"
-                                        else:
-                                            self.mensagem_bau = "Bau cheio"
-
-                                        self.tempo_mensagem_bau = 60
-                                        break
-
-            if self.tempo_mensagem_bau > 0:
-                self.tempo_mensagem_bau -= 1
+            if pyxel.btnp(pyxel.KEY_RETURN):
+                self.estado_jogo = "exploracao"
+                return
 
             if pyxel.btnp(pyxel.KEY_E):
-                if self.bau_aberto != None:
-                    self.bau_aberto.aberto = False
+                if self.colisaoBau(self.bau_prologo):
+                    self.bau_prologo.aberto = True
+                    self.bau_aberto = self.bau_prologo
+                    self.tela_aberta = "bau"
+                    self.modo_bau = "retirar"
+                    return
 
+            self.mago.movendo = False
+
+            if pyxel.btn(pyxel.KEY_W):
+                self.mago.moverY(-1)
+                self.mago.sprite_x = 64
+                self.mago.sprite_y = 0
+                self.mago.movendo = True
+            elif pyxel.btn(pyxel.KEY_S):
+                self.mago.moverY(1)
+                self.mago.sprite_x = 0
+                self.mago.sprite_y = 0
+                self.mago.movendo = True
+            elif pyxel.btn(pyxel.KEY_A):
+                self.mago.moverX(-1)
+                self.mago.sprite_x = 64
+                self.mago.sprite_y = 16
+                self.mago.movendo = True
+            elif pyxel.btn(pyxel.KEY_D):
+                self.mago.moverX(1)
+                self.mago.sprite_x = 0
+                self.mago.sprite_y = 16
+                self.mago.movendo = True
+
+            self.mago.x = max(0, min(144, self.mago.x))
+            self.mago.y = max(20, min(86, self.mago.y))
+
+            if self.mago.movendo:
+                self.mago.tempo_animacao += 1
+                if self.mago.tempo_animacao == 6:
+                    self.mago.quadro = (self.mago.quadro + 1) % 4
+                    self.mago.tempo_animacao = 0
+            else:
+                self.mago.quadro = 0
+                self.mago.tempo_animacao = 0
+
+            return
+
+        if self.mago.vida == 0:
+            return
+
+        if pyxel.btnp(pyxel.KEY_P):
+            if self.jogo_pausado == False:
+                self.jogo_pausado = True
                 self.tela_aberta = None
-                self.bau_aberto = None
+            else:
+                self.jogo_pausado = False
 
+        if self.jogo_pausado:
+            return
+
+        self.atualizarInventario()
+        
+        if self.tela_aberta == "bau":
+            self.atualizarBau()
             return
 
         if self.tela_aberta != None:
@@ -1168,6 +1252,12 @@ class Jogo:
             self.tempo_mensagem -= 1
     
     def draw(self):
+        if self.estado_jogo == "prologo":
+            for i in range(16):
+                pyxel.colors[i] = self.paleta_floresta[i]
+        else:
+            for i in range(16):
+                pyxel.colors[i] = self.paleta_original[i]
         pyxel.cls(0)
 
         if self.estado_jogo == "menu":
@@ -1175,6 +1265,11 @@ class Jogo:
             pyxel.text(26, 58, "PRESSIONE ENTER PARA INICIAR", 7)
             pyxel.text(54, 72, "ESC PARA SAIR", 6)
             return
+
+        if self.estado_jogo == "prologo":
+            pyxel.pal(1, 11)
+            pyxel.blt(0, 20, 2, 0, 96, 160, 82, 0)
+            pyxel.pal()
 
         pyxel.rect(0, 0, 160, 20, 1)
 
@@ -1196,35 +1291,61 @@ class Jogo:
         else:
             pyxel.text(2, 14, "Magia:nenhuma", 7)
 
-        pyxel.rect(self.ataque.x, self.ataque.y, self.ataque.largura, self.ataque.altura, 8)
-        pyxel.rect(self.drenagem_forca.x, self.drenagem_forca.y, self.drenagem_forca.largura, self.drenagem_forca.altura, 11)
-
-        pyxel.rect(self.parede.x, self.parede.y, self.parede.largura, self.parede.altura, 6)
-        pyxel.rect(self.arbusto.x, self.arbusto.y, self.arbusto.largura, self.arbusto.altura, 3)
-        pyxel.rect(self.porta.x, self.porta.y, self.porta.largura, self.porta.altura, 4)
-
-        if self.lutador_demoniaco.vida > 0:
-            x_inimigo = self.lutador_demoniaco.quadro * 16
-            pyxel.blt(self.lutador_demoniaco.x, self.lutador_demoniaco.y, 0, x_inimigo, 32, 16, 16, 0)
-            pyxel.text(self.lutador_demoniaco.x, self.lutador_demoniaco.y - 6, "V:" + str(self.lutador_demoniaco.vida), 7)
-            pyxel.text(self.lutador_demoniaco.x, self.lutador_demoniaco.y - 12, self.lutador_demoniaco.estado, 10)
-
-        if self.projetil != None:
-            pyxel.blt(self.projetil.x, self.projetil.y, 1, 0, self.projetil.imagem_y, 16, 16, 0)
-
-        for bau in self.baus:
-            if bau.aberto == False:
+        if self.estado_jogo == "prologo":
+            if self.bau_prologo.aberto == False:
                 imagem_x = 0
                 imagem_y = 64
             else:
                 imagem_x = 16
                 imagem_y = 80
 
-            pyxel.blt(bau.x, bau.y, 2, imagem_x, imagem_y, 16, 16, 0)
+            pyxel.blt(
+                self.bau_prologo.x,
+                self.bau_prologo.y,
+                2,
+                imagem_x,
+                imagem_y,
+                16,
+                16,
+                0
+            )
 
-            if self.colisaoBau(bau):
-                if self.tela_aberta == None:
+            if self.colisaoBau(self.bau_prologo):
+                if self.bau_prologo.aberto == False:
                     pyxel.text(24, 95, "Pressione E para abrir", 7)
+                else:
+                    pyxel.text(40, 95, "Carta encontrada!", 10)
+
+        if self.estado_jogo != "prologo":
+            pyxel.rect(self.ataque.x, self.ataque.y, self.ataque.largura, self.ataque.altura, 8)
+            pyxel.rect(self.drenagem_forca.x, self.drenagem_forca.y, self.drenagem_forca.largura, self.drenagem_forca.altura, 11)
+
+            pyxel.rect(self.parede.x, self.parede.y, self.parede.largura, self.parede.altura, 6)
+            pyxel.rect(self.arbusto.x, self.arbusto.y, self.arbusto.largura, self.arbusto.altura, 3)
+            pyxel.rect(self.porta.x, self.porta.y, self.porta.largura, self.porta.altura, 4)
+
+            if self.lutador_demoniaco.vida > 0:
+                x_inimigo = self.lutador_demoniaco.quadro * 16
+                pyxel.blt(self.lutador_demoniaco.x, self.lutador_demoniaco.y, 0, x_inimigo, 32, 16, 16, 0)
+                pyxel.text(self.lutador_demoniaco.x, self.lutador_demoniaco.y - 6, "V:" + str(self.lutador_demoniaco.vida), 7)
+                pyxel.text(self.lutador_demoniaco.x, self.lutador_demoniaco.y - 12, self.lutador_demoniaco.estado, 10)
+
+            if self.projetil != None:
+                pyxel.blt(self.projetil.x, self.projetil.y, 1, 0, self.projetil.imagem_y, 16, 16, 0)
+
+            for bau in self.baus:
+                if bau.aberto == False:
+                    imagem_x = 0
+                    imagem_y = 64
+                else:
+                    imagem_x = 16
+                    imagem_y = 80
+
+                pyxel.blt(bau.x, bau.y, 2, imagem_x, imagem_y, 16, 16, 0)
+
+                if self.colisaoBau(bau):
+                    if self.tela_aberta == None:
+                        pyxel.text(24, 95, "Pressione E para abrir", 7)
 
         pyxel.rect(0, 102, 160, 18, 1)
 
