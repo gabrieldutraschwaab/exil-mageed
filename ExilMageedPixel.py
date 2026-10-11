@@ -498,6 +498,14 @@ class Jogo:
         else:
             return False
 
+    def pertoBau(self, bau):
+        margem = 4
+
+        colisaoX = self.mago.x + 16 + margem >= bau.x and self.mago.x - margem <= bau.x + bau.largura
+        colisaoY = self.mago.y + 16 + margem >= bau.y and self.mago.y - margem <= bau.y + bau.altura
+
+        return colisaoX and colisaoY
+
     def colisaoProjetil(self):
         if self.lutador_demoniaco.vida == 0:
             return False
@@ -686,6 +694,59 @@ class Jogo:
 
                     self.mago.inventario.remove(item_excluido)
                     self.item_inventario_selecionado = None
+
+    def atualizarMovimentoMago(self):
+        x_anterior_mago = self.mago.x
+        y_anterior_mago = self.mago.y
+
+        self.mago.movendo = False
+
+        if pyxel.btn(pyxel.KEY_W):
+            self.mago.moverY(-1)
+            self.mago.sprite_x = 64
+            self.mago.sprite_y = 0
+            self.mago.movendo = True
+        elif pyxel.btn(pyxel.KEY_S):
+            self.mago.moverY(1)
+            self.mago.sprite_x = 0
+            self.mago.sprite_y = 0
+            self.mago.movendo = True
+        elif pyxel.btn(pyxel.KEY_A):
+            self.mago.moverX(-1)
+            self.mago.sprite_x = 64
+            self.mago.sprite_y = 16
+            self.mago.movendo = True
+        elif pyxel.btn(pyxel.KEY_D):
+            self.mago.moverX(1)
+            self.mago.sprite_x = 0
+            self.mago.sprite_y = 16
+            self.mago.movendo = True
+
+        if self.estado_jogo == "prologo":
+            baus_colisao = [self.bau_prologo]
+        else:
+            baus_colisao = self.baus
+
+        for bau in baus_colisao:
+            colisaoX = self.mago.x + 12 > bau.x and self.mago.x + 4 < bau.x + bau.largura
+            colisaoY = self.mago.y + 14 > bau.y and self.mago.y + 4 < bau.y + bau.altura
+
+            if colisaoX and colisaoY:
+                self.mago.x = x_anterior_mago
+                self.mago.y = y_anterior_mago
+                break
+
+        if self.mago.movendo:
+            self.mago.tempo_animacao += 1
+
+            if self.mago.tempo_animacao == 6:
+                self.mago.quadro = (self.mago.quadro + 1) % 4
+                self.mago.tempo_animacao = 0
+        else:
+            self.mago.quadro = 0
+            self.mago.tempo_animacao = 0
+
+        
         
     def update(self):
         if self.estado_jogo == "menu":
@@ -706,47 +767,17 @@ class Jogo:
                 return
 
             if pyxel.btnp(pyxel.KEY_E):
-                if self.colisaoBau(self.bau_prologo):
+                if self.pertoBau(self.bau_prologo):
                     self.bau_prologo.aberto = True
                     self.bau_aberto = self.bau_prologo
                     self.tela_aberta = "bau"
                     self.modo_bau = "retirar"
                     return
 
-            self.mago.movendo = False
-
-            if pyxel.btn(pyxel.KEY_W):
-                self.mago.moverY(-1)
-                self.mago.sprite_x = 64
-                self.mago.sprite_y = 0
-                self.mago.movendo = True
-            elif pyxel.btn(pyxel.KEY_S):
-                self.mago.moverY(1)
-                self.mago.sprite_x = 0
-                self.mago.sprite_y = 0
-                self.mago.movendo = True
-            elif pyxel.btn(pyxel.KEY_A):
-                self.mago.moverX(-1)
-                self.mago.sprite_x = 64
-                self.mago.sprite_y = 16
-                self.mago.movendo = True
-            elif pyxel.btn(pyxel.KEY_D):
-                self.mago.moverX(1)
-                self.mago.sprite_x = 0
-                self.mago.sprite_y = 16
-                self.mago.movendo = True
+            self.atualizarMovimentoMago()
 
             self.mago.x = max(0, min(144, self.mago.x))
             self.mago.y = max(20, min(86, self.mago.y))
-
-            if self.mago.movendo:
-                self.mago.tempo_animacao += 1
-                if self.mago.tempo_animacao == 6:
-                    self.mago.quadro = (self.mago.quadro + 1) % 4
-                    self.mago.tempo_animacao = 0
-            else:
-                self.mago.quadro = 0
-                self.mago.tempo_animacao = 0
 
             return
 
@@ -785,48 +816,14 @@ class Jogo:
         if self.tempo_pele_montanha > 0:
             self.tempo_pele_montanha -= 1
 
-        self.mago.movendo = False
-
         x_anterior_mago = self.mago.x
         y_anterior_mago = self.mago.y
 
-        if pyxel.btn(pyxel.KEY_W):
-            self.mago.moverY(-1)
-            self.mago.sprite_x = 64
-            self.mago.sprite_y = 0
-            self.mago.movendo = True
-        elif pyxel.btn(pyxel.KEY_S):
-            self.mago.moverY(1)
-            self.mago.sprite_x = 0
-            self.mago.sprite_y = 0
-            self.mago.movendo = True
-        elif pyxel.btn(pyxel.KEY_A):
-            self.mago.moverX(-1)
-            self.mago.sprite_x = 64
-            self.mago.sprite_y = 16
-            self.mago.movendo = True
-        elif pyxel.btn(pyxel.KEY_D):
-            self.mago.moverX(1)
-            self.mago.sprite_x = 0
-            self.mago.sprite_y = 16
-            self.mago.movendo = True
+        self.atualizarMovimentoMago()
 
         if self.colisaoParede(self.mago):
             self.mago.x = x_anterior_mago
             self.mago.y = y_anterior_mago
-
-        if self.mago.movendo:
-            self.mago.tempo_animacao += 1
-
-            if self.mago.tempo_animacao == 6:
-                self.mago.quadro += 1
-                self.mago.tempo_animacao = 0
-
-                if self.mago.quadro > 3:
-                    self.mago.quadro = 0
-        else:
-            self.mago.quadro = 0
-            self.mago.tempo_animacao = 0
 
         if self.mago.x < -4:
             self.mago.x = -4
@@ -876,7 +873,7 @@ class Jogo:
             abriu_bau = False
 
             for bau in self.baus:
-                if self.colisaoBau(bau):
+                if self.pertoBau(bau):
                     bau.aberto = True
                     self.bau_aberto = bau
                     self.tela_aberta = "bau"
@@ -1310,7 +1307,7 @@ class Jogo:
                 0
             )
 
-            if self.colisaoBau(self.bau_prologo):
+            if self.tela_aberta == None and self.pertoBau(self.bau_prologo):
                 if self.bau_prologo.aberto == False:
                     pyxel.text(24, 95, "Pressione E para abrir", 7)
                 else:
@@ -1343,7 +1340,7 @@ class Jogo:
 
                 pyxel.blt(bau.x, bau.y, 2, imagem_x, imagem_y, 16, 16, 0)
 
-                if self.colisaoBau(bau):
+                if self.pertoBau(bau):
                     if self.tela_aberta == None:
                         pyxel.text(24, 95, "Pressione E para abrir", 7)
 
