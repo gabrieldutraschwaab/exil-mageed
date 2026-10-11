@@ -208,6 +208,10 @@ class Inimigo:
         self.estado = "patrulha"
         self.raio_deteccao = 25
         self.tempo_busca = 0
+        self.tempo_congelado = 0
+        self.tempo_porta = 0
+        self.passando_porta = False
+        self.estado_anterior = None
         self.ultimo_x_jogador = x
         self.ultimo_y_jogador = y
         self.chegou_ultima_posicao = False
@@ -251,6 +255,29 @@ class DrenagemForca:
         self.altura = altura
         self.quantidade = quantidade
 
+class Parede:
+    def __init__(self, x, y, largura, altura):
+        self.x = x
+        self.y = y
+        self.largura = largura
+        self.altura = altura
+
+class Arbusto:
+    def __init__(self, x, y, largura, altura):
+        self.x = x
+        self.y = y
+        self.largura = largura
+        self.altura = altura
+
+class Porta:
+    def __init__(self, x, y, largura, altura):
+        self.x = x
+        self.y = y
+        self.largura = largura
+        self.altura = altura
+        self.aberta = False
+        self.tempo_atraso = 60
+
 class Bau:
     def __init__(self, x, y, largura, altura, tipo, conteudo, capacidade):
         self.x = x
@@ -285,6 +312,7 @@ class Jogo:
         pyxel.images[1].load(0, 32, "bola_fogo.png")
         pyxel.images[1].load(0, 64, "barreira_cristal.png")
         pyxel.images[1].load(0, 96, "explosao_arcana.png")
+        pyxel.images[1].load(0, 128, "correntes_abismo.png")
         pyxel.images[2].load(0, 0, "pocao_vida.png")
         pyxel.images[2].load(0, 16, "armadura_soldado.png")
         pyxel.images[2].load(0, 32, "coracao_tita.png")
@@ -295,11 +323,12 @@ class Jogo:
         self.bola_fogo = Magia("Bola de Fogo", 35, 20, 30, 45, 2, 1, 100)
         self.barreira_cristal = Magia("Barreira de Cristal", 0, 25, 60, 0, 3, 1, 100)
         self.explosao_arcana = Magia("Explosao Arcana", 50, 35, 70, 0, 4, 1, 100)
+        self.correntes_abismo = Magia("Correntes do Abismo", 0, 20, 60, 50, 1, 1, 100)
         self.pocao_vida = Item("Pocao de Vida", "ativo", "vida", 40, True, "comum", 0)
         self.armadura_soldado = Item("Armadura de Soldado", "passivo", "defesa", 15, False, "comum", 0)
         self.coracao_tita = Item("Coracao do Tita", "ativo", "forca", 50, True, "epico", 300)
         self.pele_montanha = Item("Pele da Montanha", "ativo", "defesa", 60, True, "epico", 300)
-        self.bau_magias = Bau(35, 70, 16, 16, "magias", [self.disparo_arcano, self.bola_fogo, self.barreira_cristal, self.explosao_arcana], 6)
+        self.bau_magias = Bau(35, 70, 16, 16, "magias", [self.disparo_arcano, self.bola_fogo, self.barreira_cristal, self.explosao_arcana, self.correntes_abismo], 6)
         self.bau_itens = Bau(70, 70, 16, 16, "itens", [self.pocao_vida, self.armadura_soldado, self.coracao_tita, self.pele_montanha], 6)
         self.baus = [self.bau_magias, self.bau_itens]
         self.bau_aberto = None
@@ -319,12 +348,94 @@ class Jogo:
         self.aumento_coracao_tita = 0
         self.tempo_pele_montanha = 0
         self.aumento_pele_montanha = 0
+        self.tempo_efeito_correntes = 0
         self.ataque = Ataque(100, 70, 16, 16, 20)
         self.drenagem_forca = DrenagemForca(130, 70, 16, 16, 10)
+        self.parede = Parede(75, 20, 3, 32)
+        self.arbusto = Arbusto(55, 45, 16, 16)
+        self.porta = Porta(25, 45, 3, 32)
         self.encostou_ataque = False
         self.encostou_drenagem = False
-        self.lutador_demoniaco = Inimigo("Lutador Demoníaco", 240, 65, 55, 65, 35, 80, 120, 35, 16, 16)
+        self.lutador_demoniaco = Inimigo("Lutador Demoniaco", 240, 65, 55, 65, 35, 80, 120, 35, 16, 16)
+        self.lutador_demoniaco.tipo = "demonio"
         pyxel.run(self.update, self.draw)
+
+    def paredeBloqueiaVisao(self):
+        centro_mago_x = self.mago.x + 8
+        centro_mago_y = self.mago.y + 8
+        centro_inimigo_x = self.lutador_demoniaco.x + 8
+        centro_inimigo_y = self.lutador_demoniaco.y + 8
+
+        mago_na_esquerda = centro_mago_x < self.parede.x
+        inimigo_na_esquerda = centro_inimigo_x < self.parede.x
+
+        if mago_na_esquerda == inimigo_na_esquerda:
+            return False
+
+        distancia_x = centro_mago_x - centro_inimigo_x
+        distancia_ate_parede = self.parede.x - centro_inimigo_x
+        parte_do_caminho = distancia_ate_parede / distancia_x
+
+        altura_da_visao = centro_inimigo_y + (centro_mago_y - centro_inimigo_y) * parte_do_caminho
+
+        if altura_da_visao >= self.parede.y and altura_da_visao <= self.parede.y + self.parede.altura:
+            return True
+        else:
+            return False
+
+    def arbustoBloqueiaVisao(self):
+        centro_mago_x = self.mago.x + 8
+        centro_mago_y = self.mago.y + 8
+        centro_inimigo_x = self.lutador_demoniaco.x + 8
+        centro_inimigo_y = self.lutador_demoniaco.y + 8
+
+        if centro_mago_x >= self.arbusto.x and centro_mago_x <= self.arbusto.x + self.arbusto.largura:
+            if centro_mago_y >= self.arbusto.y and centro_mago_y <= self.arbusto.y + self.arbusto.altura:
+                return True
+
+        distancia_x = centro_mago_x - centro_inimigo_x
+        distancia_y = centro_mago_y - centro_inimigo_y
+        distancia = (distancia_x * distancia_x + distancia_y * distancia_y) ** 0.5
+
+        if distancia == 0:
+            return False
+
+        for passo in range(int(distancia) + 1):
+            ponto_x = centro_inimigo_x + distancia_x * passo / distancia
+            ponto_y = centro_inimigo_y + distancia_y * passo / distancia
+
+            if ponto_x >= self.arbusto.x and ponto_x <= self.arbusto.x + self.arbusto.largura:
+                if ponto_y >= self.arbusto.y and ponto_y <= self.arbusto.y + self.arbusto.altura:
+                    return True
+
+        return False
+
+    def colisaoParede(self, personagem):
+        colisaoX = personagem.x + 12 > self.parede.x and personagem.x + 4 < self.parede.x + self.parede.largura
+        colisaoY = personagem.y + 14 > self.parede.y and personagem.y + 4 < self.parede.y + self.parede.altura
+
+        if colisaoX and colisaoY:
+            return True
+        else:
+            return False
+
+    def colisaoArbusto(self, personagem):
+        colisaoX = personagem.x + 12 > self.arbusto.x and personagem.x + 4 < self.arbusto.x + self.arbusto.largura
+        colisaoY = personagem.y + 14 > self.arbusto.y and personagem.y + 4 < self.arbusto.y + self.arbusto.altura
+
+        if colisaoX and colisaoY:
+            return True
+        else:
+            return False
+
+    def colisaoPorta(self, personagem):
+        colisaoX = personagem.x + 12 > self.porta.x and personagem.x + 4 < self.porta.x + self.porta.largura
+        colisaoY = personagem.y + 14 > self.porta.y and personagem.y + 4 < self.porta.y + self.porta.altura
+
+        if colisaoX and colisaoY:
+            return True
+        else:
+            return False
 
     def colisaoAtaque(self):
         colisaoX = self.mago.x + 16 >= self.ataque.x and self.mago.x <= self.ataque.x + self.ataque.largura
@@ -592,6 +703,9 @@ class Jogo:
 
         self.mago.movendo = False
 
+        x_anterior_mago = self.mago.x
+        y_anterior_mago = self.mago.y
+
         if pyxel.btn(pyxel.KEY_W):
             self.mago.moverY(-1)
             self.mago.sprite_x = 64
@@ -613,6 +727,10 @@ class Jogo:
             self.mago.sprite_y = 16
             self.mago.movendo = True
 
+        if self.colisaoParede(self.mago):
+            self.mago.x = x_anterior_mago
+            self.mago.y = y_anterior_mago
+
         if self.mago.movendo:
             self.mago.tempo_animacao += 1
 
@@ -626,15 +744,15 @@ class Jogo:
             self.mago.quadro = 0
             self.mago.tempo_animacao = 0
 
-        if self.mago.x < 0:
-            self.mago.x = 0
-        elif self.mago.x > 144:
-            self.mago.x = 144
+        if self.mago.x < -4:
+            self.mago.x = -4
+        elif self.mago.x > 148:
+            self.mago.x = 148
 
         if self.mago.y < 20:
             self.mago.y = 20
-        elif self.mago.y > 86:
-            self.mago.y = 86
+        elif self.mago.y > 88:
+            self.mago.y = 88
 
         if self.colisaoAtaque():
             if self.encostou_ataque == False:
@@ -779,21 +897,46 @@ class Jogo:
                         self.projetil = ProjetilMagico(self.mago.x + 4, self.mago.y + 4, direcao_x, direcao_y, self.explosao_arcana.dano, 96)
                         self.mago.modificarMana(-self.explosao_arcana.mana)
 
+            elif self.mago.magia_selecionada == self.correntes_abismo:
+                if self.mago.mana >= self.correntes_abismo.mana:
+                    if self.lutador_demoniaco.vida > 0:
+                        distancia_x = self.mago.x - self.lutador_demoniaco.x
+                        distancia_y = self.mago.y - self.lutador_demoniaco.y
+                        distancia = (distancia_x * distancia_x + distancia_y * distancia_y) ** 0.5
+
+                        if distancia <= self.correntes_abismo.alcance:
+                            self.lutador_demoniaco.estado_anterior = self.lutador_demoniaco.estado
+                            self.lutador_demoniaco.estado = "congelado"
+                            self.lutador_demoniaco.tempo_congelado = 300
+                            self.mago.modificarMana(-self.correntes_abismo.mana)
+                            self.tempo_efeito_correntes = 15
+
         if self.tempo_barreira > 0:
             self.tempo_barreira -= 1
         else:
             self.barreira_ativa = False
 
+        if self.tempo_efeito_correntes > 0:
+            self.tempo_efeito_correntes -= 1
+
+        x_anterior_inimigo = self.lutador_demoniaco.x
+        y_anterior_inimigo = self.lutador_demoniaco.y
+
         distancia_x = self.mago.x - self.lutador_demoniaco.x
         distancia_y = self.mago.y - self.lutador_demoniaco.y
         distancia_jogador = (distancia_x * distancia_x + distancia_y * distancia_y) ** 0.5
 
+        if pyxel.btnp(pyxel.KEY_C):
+            self.lutador_demoniaco.estado_anterior = self.lutador_demoniaco.estado
+            self.lutador_demoniaco.estado = "congelado"
+            self.lutador_demoniaco.tempo_congelado = 90
+
         if self.lutador_demoniaco.estado == "patrulha":
-            if distancia_jogador <= self.lutador_demoniaco.raio_deteccao:
+            if distancia_jogador <= self.lutador_demoniaco.raio_deteccao and self.paredeBloqueiaVisao() == False and self.arbustoBloqueiaVisao() == False:
                 self.lutador_demoniaco.estado = "perseguicao"
 
         elif self.lutador_demoniaco.estado == "perseguicao":
-            if distancia_jogador > self.lutador_demoniaco.raio_deteccao:
+            if distancia_jogador > self.lutador_demoniaco.raio_deteccao or self.paredeBloqueiaVisao() == True or self.arbustoBloqueiaVisao() == True:
                 self.lutador_demoniaco.estado = "busca"
                 self.lutador_demoniaco.tempo_busca = 300 - self.mago.sorte * 2
                 self.lutador_demoniaco.tempo_movimento = 0
@@ -822,7 +965,7 @@ class Jogo:
                         self.lutador_demoniaco.y += 1
 
         elif self.lutador_demoniaco.estado == "busca":
-            if distancia_jogador <= self.lutador_demoniaco.raio_deteccao:
+            if distancia_jogador <= self.lutador_demoniaco.raio_deteccao and self.paredeBloqueiaVisao() == False and self.arbustoBloqueiaVisao() == False:
                 self.lutador_demoniaco.estado = "perseguicao"
                 self.lutador_demoniaco.tempo_busca = 0
 
@@ -890,8 +1033,114 @@ class Jogo:
                     elif self.lutador_demoniaco.y > self.lutador_demoniaco.y_inicial:
                         self.lutador_demoniaco.y -= 1
 
-                    if self.lutador_demoniaco.x == self.lutador_demoniaco.x_inicial and self.lutador_demoniaco.y == self.lutador_demoniaco.y_inicial:
-                        self.lutador_demoniaco.estado = "patrulha"
+                if self.lutador_demoniaco.x == self.lutador_demoniaco.x_inicial and self.lutador_demoniaco.y == self.lutador_demoniaco.y_inicial:
+                    self.lutador_demoniaco.estado = "patrulha"
+
+        elif self.lutador_demoniaco.estado == "congelado":
+            if self.lutador_demoniaco.tempo_congelado > 0:
+                self.lutador_demoniaco.tempo_congelado -= 1
+            else:
+                if self.lutador_demoniaco.estado_anterior == "perseguicao":
+                    if distancia_jogador <= self.lutador_demoniaco.raio_deteccao and self.paredeBloqueiaVisao() == False:
+                        self.lutador_demoniaco.estado = "perseguicao"
+                    else:
+                        self.lutador_demoniaco.estado = "busca"
+                        self.lutador_demoniaco.tempo_busca = 300 - self.mago.sorte * 2
+                        self.lutador_demoniaco.tempo_movimento = 0
+                        self.lutador_demoniaco.chegou_ultima_posicao = False
+                        self.lutador_demoniaco.direcao_busca = 0
+                        self.lutador_demoniaco.passos_busca = 0
+                else:
+                    self.lutador_demoniaco.estado = self.lutador_demoniaco.estado_anterior
+
+        if self.colisaoParede(self.lutador_demoniaco):
+            novo_x_inimigo = self.lutador_demoniaco.x
+            novo_y_inimigo = self.lutador_demoniaco.y
+
+            self.lutador_demoniaco.y = y_anterior_inimigo
+
+            if self.colisaoParede(self.lutador_demoniaco):
+                self.lutador_demoniaco.x = x_anterior_inimigo
+            else:
+                self.lutador_demoniaco.x = novo_x_inimigo
+
+            self.lutador_demoniaco.y = novo_y_inimigo
+            self.lutador_demoniaco.x = x_anterior_inimigo
+
+            if self.colisaoParede(self.lutador_demoniaco):
+                self.lutador_demoniaco.y = y_anterior_inimigo
+            else:
+                self.lutador_demoniaco.y = novo_y_inimigo
+
+        if self.lutador_demoniaco.vida > 0:
+
+            if self.colisaoParede(self.lutador_demoniaco):
+                novo_x_inimigo = self.lutador_demoniaco.x
+                novo_y_inimigo = self.lutador_demoniaco.y
+
+                self.lutador_demoniaco.y = y_anterior_inimigo
+
+                if self.colisaoParede(self.lutador_demoniaco):
+                    self.lutador_demoniaco.x = x_anterior_inimigo
+                else:
+                    self.lutador_demoniaco.x = novo_x_inimigo
+
+                self.lutador_demoniaco.y = novo_y_inimigo
+                self.lutador_demoniaco.x = x_anterior_inimigo
+
+                if self.colisaoParede(self.lutador_demoniaco):
+                    self.lutador_demoniaco.y = y_anterior_inimigo
+                else:
+                    self.lutador_demoniaco.y = novo_y_inimigo
+
+        if self.colisaoArbusto(self.lutador_demoniaco):
+            novo_x_inimigo = self.lutador_demoniaco.x
+            novo_y_inimigo = self.lutador_demoniaco.y
+
+            self.lutador_demoniaco.y = y_anterior_inimigo
+
+            if self.colisaoArbusto(self.lutador_demoniaco):
+                self.lutador_demoniaco.x = x_anterior_inimigo
+            else:
+                self.lutador_demoniaco.x = novo_x_inimigo
+
+            self.lutador_demoniaco.y = novo_y_inimigo
+            self.lutador_demoniaco.x = x_anterior_inimigo
+
+            if self.colisaoArbusto(self.lutador_demoniaco):
+                self.lutador_demoniaco.y = y_anterior_inimigo
+            else:
+                self.lutador_demoniaco.y = novo_y_inimigo
+
+        if self.lutador_demoniaco.tipo == "vampiro":
+            if self.colisaoPorta(self.lutador_demoniaco):
+                self.lutador_demoniaco.x = x_anterior_inimigo
+                self.lutador_demoniaco.y = y_anterior_inimigo
+
+        else:
+            if self.lutador_demoniaco.passando_porta == True:
+                if self.colisaoPorta(self.lutador_demoniaco) == False:
+                    self.lutador_demoniaco.passando_porta = False
+                    self.lutador_demoniaco.tempo_porta = 0
+
+            else:
+                if self.colisaoPorta(self.lutador_demoniaco):
+                    if self.lutador_demoniaco.tempo_porta < 60:
+                        self.lutador_demoniaco.tempo_porta += 1
+                        self.lutador_demoniaco.x = x_anterior_inimigo
+                        self.lutador_demoniaco.y = y_anterior_inimigo
+                    else:
+                        self.lutador_demoniaco.passando_porta = True
+
+        if self.lutador_demoniaco.x < 0:
+            self.lutador_demoniaco.x = 0
+        elif self.lutador_demoniaco.x > 144:
+            self.lutador_demoniaco.x = 144
+
+        if self.lutador_demoniaco.y < 20:
+            self.lutador_demoniaco.y = 20
+        elif self.lutador_demoniaco.y > 86:
+            self.lutador_demoniaco.y = 86
 
         if self.lutador_demoniaco.vida > 0:
             self.lutador_demoniaco.tempo_animacao += 1
@@ -902,6 +1151,8 @@ class Jogo:
 
                 if self.lutador_demoniaco.quadro > 3:
                     self.lutador_demoniaco.quadro = 0
+
+        
 
         if self.projetil != None:
             self.projetil.mover()
@@ -934,6 +1185,9 @@ class Jogo:
         x_imagem = self.mago.sprite_x + self.mago.quadro * 16
         pyxel.blt(self.mago.x, self.mago.y, 0, x_imagem, self.mago.sprite_y, 16, 16, 7)
 
+        if self.tempo_efeito_correntes > 0:
+            pyxel.circb(self.mago.x + 8, self.mago.y + 8, self.correntes_abismo.alcance, 12)
+
         if self.barreira_ativa:
             pyxel.blt(self.mago.x, self.mago.y, 1, 0, 64, 16, 16, 0)
 
@@ -944,6 +1198,10 @@ class Jogo:
 
         pyxel.rect(self.ataque.x, self.ataque.y, self.ataque.largura, self.ataque.altura, 8)
         pyxel.rect(self.drenagem_forca.x, self.drenagem_forca.y, self.drenagem_forca.largura, self.drenagem_forca.altura, 11)
+
+        pyxel.rect(self.parede.x, self.parede.y, self.parede.largura, self.parede.altura, 6)
+        pyxel.rect(self.arbusto.x, self.arbusto.y, self.arbusto.largura, self.arbusto.altura, 3)
+        pyxel.rect(self.porta.x, self.porta.y, self.porta.largura, self.porta.altura, 4)
 
         if self.lutador_demoniaco.vida > 0:
             x_inimigo = self.lutador_demoniaco.quadro * 16
@@ -1016,6 +1274,8 @@ class Jogo:
                 imagem_y = 64
             elif magia == self.explosao_arcana:
                 imagem_y = 96
+            elif magia == self.correntes_abismo:
+                imagem_y = 128
 
             if imagem_y != None:
                 x_magia = 89 + i * 17
