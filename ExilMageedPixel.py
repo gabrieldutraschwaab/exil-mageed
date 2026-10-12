@@ -294,6 +294,8 @@ class Jogo:
         pyxel.mouse(True)
         pyxel.images[0].load(0, 0, "mage.png")
         pyxel.images[0].load(0, 32, "lutador_demoniaco.png")
+        pyxel.images[0].load(0, 48, "vampiro_1.png")
+        pyxel.images[0].load(0, 128, "fundo_vampiros.png")
         pyxel.images[1].load(0, 0, "disparo_arcano.png")
         pyxel.images[1].load(0, 32, "bola_fogo.png")
         pyxel.images[1].load(0, 64, "barreira_cristal.png")
@@ -405,8 +407,12 @@ class Jogo:
         self.porta = Porta(25, 45, 3, 32)
         self.lutador_demoniaco = Inimigo("Lutador Demoniaco", 240, 65, 55, 65, 35, 80, 120, 35, 16, 16, 3)
         self.lutador_demoniaco.tipo = "demonio"
+        self.lutador_demoniaco.imagem_y = 32
+        self.lutador_demoniaco.cor_transparente = 0
         self.vampiro_1 = Inimigo("Guarda Vampiro", 120, 40, 30, 50, 30, 40, 120, 35, 16, 16, 1)
         self.vampiro_1.tipo = "vampiro"
+        self.vampiro_1.imagem_y = 48
+        self.vampiro_1.cor_transparente = 11
         self.inimigo_atual = self.vampiro_1
         pyxel.run(self.update, self.draw)
 
@@ -1312,6 +1318,8 @@ class Jogo:
             pyxel.pal(1, 11)
             pyxel.blt(0, 20, 2, 0, 96, 160, 82, 0)
             pyxel.pal()
+        elif self.estado_jogo == "vampiros":
+            pyxel.blt(0, 20, 0, 0, 128, 160, 82)
 
         pyxel.rect(0, 0, 160, 20, 1)
 
@@ -1368,7 +1376,7 @@ class Jogo:
 
             if self.inimigo_atual.vida > 0:
                 x_inimigo = self.inimigo_atual.quadro * 16
-                pyxel.blt(self.inimigo_atual.x, self.inimigo_atual.y, 0, x_inimigo, 32, 16, 16, 0)
+                pyxel.blt(self.inimigo_atual.x, self.inimigo_atual.y, 0, x_inimigo, self.inimigo_atual.imagem_y, 16, 16, self.inimigo_atual.cor_transparente)
                 pyxel.text(self.inimigo_atual.x, self.inimigo_atual.y - 6, "V:" + str(self.inimigo_atual.vida), 7)
                 pyxel.text(self.inimigo_atual.x, self.inimigo_atual.y - 12, self.inimigo_atual.estado, 10)
 
