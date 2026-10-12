@@ -345,12 +345,14 @@ class Jogo:
         self.barreira_cristal = Magia("Barreira de Cristal", 0, 25, 60, 0, 3, 1, 100)
         self.explosao_arcana = Magia("Explosao Arcana", 50, 35, 70, 0, 4, 1, 100)
         self.correntes_abismo = Magia("Correntes do Abismo", 0, 20, 60, 50, 1, 1, 100)
+        self.mago.aprenderMagia(self.disparo_arcano)
+        self.mago.magias_equipadas[0] = self.disparo_arcano
         self.pocao_vida = Item("Pocao de Vida", "ativo", "vida", 40, True, "comum", 0)
         self.armadura_soldado = Item("Armadura de Soldado", "passivo", "defesa", 15, False, "comum", 0)
         self.coracao_tita = Item("Coracao do Tita", "ativo", "forca", 50, True, "epico", 300)
         self.pele_montanha = Item("Pele da Montanha", "ativo", "defesa", 60, True, "epico", 300)
         self.bau_magias = Bau(35, 70, 16, 16, "magias", [self.disparo_arcano, self.bola_fogo, self.barreira_cristal, self.explosao_arcana, self.correntes_abismo], 6)
-        self.bau_itens = Bau(70, 70, 16, 16, "itens", [self.pocao_vida, self.armadura_soldado, self.coracao_tita, self.pele_montanha], 6)
+        self.bau_itens = Bau(70, 70, 16, 16, "itens", [self.armadura_soldado, self.coracao_tita, self.pele_montanha], 6)
         self.baus = [self.bau_magias, self.bau_itens]
         self.carta_prologo = Item("Carta", "especial", "historia", 0, False, "comum", 0)
         self.paginas_carta = [
@@ -375,11 +377,11 @@ class Jogo:
             [
                 "O pergaminho esta no reino dos",
                 "demonios, mas atacalos agora",
-                "seria praticamente impossivel.",
-                "Por isso, e melhor invadir",
-                "primeiro o reino dos vampiros,",
-                "pra conseguir magias e itens",
-                "pra ficar mais forte."
+                "seria quase impossivel. Antes,",
+                "invada o reino dos vampiros e",
+                "reuna magias e itens. Cada reino",
+                "tem sua propria paisagem e uma",
+                "atmosfera que o torna unico."
             ],
             [
                 "Depois, voce deve ir no reino dos",
@@ -393,7 +395,7 @@ class Jogo:
         ]
 
         self.pagina_carta = 0
-        self.bau_prologo = Bau(72, 45, 16, 16, "itens", [self.carta_prologo], 6)
+        self.bau_prologo = Bau(72, 45, 16, 16, "itens", [self.carta_prologo, self.pocao_vida], 6)
         self.bau_aberto = None
         self.modo_bau = "retirar"
         self.projetil = None
@@ -825,6 +827,9 @@ class Jogo:
                     self.pagina_carta += 1
                 else:
                     self.tela_aberta = None
+                    self.estado_jogo = "vampiros"
+                    self.mago.x = 72
+                    self.mago.y = 86
 
             return
 
@@ -845,6 +850,25 @@ class Jogo:
 
             if self.tela_aberta != None:
                 return
+
+            if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
+                if self.mago.magia_selecionada == self.disparo_arcano:
+                    if self.mago.mana >= self.disparo_arcano.mana:
+                        distancia_x = pyxel.mouse_x - (self.mago.x + 8)
+                        distancia_y = pyxel.mouse_y - (self.mago.y + 8)
+                        distancia = (distancia_x * distancia_x + distancia_y * distancia_y) ** 0.5
+
+                        if distancia > 0:
+                            direcao_x = distancia_x / distancia
+                            direcao_y = distancia_y / distancia
+                            self.projetil = ProjetilMagico(self.mago.x + 4, self.mago.y + 4, direcao_x, direcao_y, self.disparo_arcano.dano, 0)
+                            self.mago.modificarMana(-self.disparo_arcano.mana)
+
+            if self.projetil != None:
+                self.projetil.mover()
+
+                if self.projetil.x < 0 or self.projetil.x > 144 or self.projetil.y < 20 or self.projetil.y > 102:
+                    self.projetil = None
 
             if pyxel.btnp(pyxel.KEY_RETURN):
                 self.estado_jogo = "exploracao"
@@ -1228,6 +1252,7 @@ class Jogo:
                 novo_x_inimigo = self.lutador_demoniaco.x
                 novo_y_inimigo = self.lutador_demoniaco.y
 
+
                 self.lutador_demoniaco.y = y_anterior_inimigo
 
                 if self.colisaoParede(self.lutador_demoniaco):
@@ -1242,6 +1267,7 @@ class Jogo:
                     self.lutador_demoniaco.y = y_anterior_inimigo
                 else:
                     self.lutador_demoniaco.y = novo_y_inimigo
+
 
         if self.colisaoArbusto(self.lutador_demoniaco):
             novo_x_inimigo = self.lutador_demoniaco.x
@@ -1382,6 +1408,9 @@ class Jogo:
                 else:
                     pyxel.text(40, 95, "Carta encontrada!", 10)
 
+            if self.projetil != None:
+                pyxel.blt(self.projetil.x, self.projetil.y, 1, 0, self.projetil.imagem_y, 16, 16, 0)
+
         if self.estado_jogo != "prologo":
             pyxel.rect(self.ataque.x, self.ataque.y, self.ataque.largura, self.ataque.altura, 8)
             pyxel.rect(self.drenagem_forca.x, self.drenagem_forca.y, self.drenagem_forca.largura, self.drenagem_forca.altura, 11)
@@ -1453,6 +1482,10 @@ class Jogo:
                 x_item = 4 + i * 17
                 pyxel.blt(x_item, 103, 2, imagem_x, imagem_y, 16, 16, 0, scale=0.7)
 
+        if self.estado_jogo == "prologo":
+            for i in range(16):
+                pyxel.colors[i] = self.paleta_original[i]
+
         for i in range(4):
             magia = self.mago.magias_equipadas[i]
             imagem_y = None
@@ -1471,6 +1504,10 @@ class Jogo:
             if imagem_y != None:
                 x_magia = 89 + i * 17
                 pyxel.blt(x_magia, 103, 1, 0, imagem_y, 16, 16, 0, scale=0.7)
+
+        if self.estado_jogo == "prologo":
+            for i in range(16):
+                pyxel.colors[i] = self.paleta_floresta[i]
 
         if self.tempo_coracao_tita > 0:
             segundos = self.tempo_coracao_tita // 30
