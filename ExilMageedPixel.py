@@ -318,6 +318,8 @@ class Jogo:
         pyxel.images[2].load(0, 32, "coracao_tita.png")
         pyxel.images[2].load(0, 48, "pele_montanha.png")
         pyxel.images[2].load(0, 64, "bau.png")
+        pyxel.images[2].load(16, 0, "carta.png")
+
         self.paleta_original = [pyxel.colors[i] for i in range(16)]
         self.paleta_floresta = self.paleta_original.copy()
 
@@ -336,6 +338,7 @@ class Jogo:
 
         for i in range(16):
             pyxel.colors[i] = self.paleta_original[i]
+
         self.mago = Jogador("Exil Mageed", 200, 50, 100, 40, 30, 10, 40, 100, 100, 10, 10, [], [], 72, 86)
         self.disparo_arcano = Magia("Disparo Arcano", 20, 10, 20, 50, 1, 1, 100)
         self.bola_fogo = Magia("Bola de Fogo", 35, 20, 30, 45, 2, 1, 100)
@@ -350,6 +353,46 @@ class Jogo:
         self.bau_itens = Bau(70, 70, 16, 16, "itens", [self.pocao_vida, self.armadura_soldado, self.coracao_tita, self.pele_montanha], 6)
         self.baus = [self.bau_magias, self.bau_itens]
         self.carta_prologo = Item("Carta", "especial", "historia", 0, False, "comum", 0)
+        self.paginas_carta = [
+            [
+                "Toda sua familia foi assassinada.",
+                "Quando voce acordou, ja era tarde.",
+                "Voce nao conseguiu proteger eles",
+                "que eram pessoas que mais amava.",
+                "Desde aquele dia, um vazio ficou",
+                "dentro de voce e a busca por",
+                "poder se tornou sua unica saida."
+            ],
+            [
+                "Buscando poder, voce descobriu a",
+                "existencia do Pergaminho Proibido,",
+                "que diz conter magias capazes de",
+                "ultrapassar os limites mortais.",
+                "Ao tentar encontrar, voce foi",
+                "banido dos reinos dos vampiros",
+                "e dos demonios."
+            ],
+            [
+                "O pergaminho esta no reino dos",
+                "demonios, mas atacalos agora",
+                "seria praticamente impossivel.",
+                "Por isso, e melhor invadir",
+                "primeiro o reino dos vampiros,",
+                "pra conseguir magias e itens",
+                "pra ficar mais forte."
+            ],
+            [
+                "Depois, voce deve ir no reino dos",
+                "demonios em busca do pergaminho.",
+                "Seu objetivo e conseguir poder",
+                "suficiente para preencher o vazio",
+                "que ficou depois da morte da sua",
+                "familia. Mas ate onde voce esta",
+                "disposto a ir pra conseguir isso?"
+            ]
+        ]
+
+        self.pagina_carta = 0
         self.bau_prologo = Bau(72, 45, 16, 16, "itens", [self.carta_prologo], 6)
         self.bau_aberto = None
         self.modo_bau = "retirar"
@@ -602,6 +645,7 @@ class Jogo:
             return
 
     def atualizarInventario(self):
+
         if len(self.mago.inventario) > self.mago.capacidade_inventario:
             self.tela_aberta = "itens"
 
@@ -695,6 +739,10 @@ class Jogo:
                     self.mago.inventario.remove(item_excluido)
                     self.item_inventario_selecionado = None
 
+            if pyxel.btnp(pyxel.KEY_E):
+                if self.item_inventario_selecionado == self.carta_prologo:
+                    self.tela_aberta = "carta"
+
     def atualizarMovimentoMago(self):
         x_anterior_mago = self.mago.x
         y_anterior_mago = self.mago.y
@@ -746,14 +794,47 @@ class Jogo:
             self.mago.quadro = 0
             self.mago.tempo_animacao = 0
 
-        
+    def atualizarHotbar(self):
+        if self.tela_aberta != None or self.jogo_pausado == True:
+            return
+
+        if pyxel.btnp(pyxel.KEY_1):
+            self.mago.item_selecionado = self.mago.itens_equipados[0]
+        elif pyxel.btnp(pyxel.KEY_2):
+            self.mago.item_selecionado = self.mago.itens_equipados[1]
+        elif pyxel.btnp(pyxel.KEY_3):
+            self.mago.item_selecionado = self.mago.itens_equipados[2]
+        elif pyxel.btnp(pyxel.KEY_4):
+            self.mago.item_selecionado = self.mago.itens_equipados[3]
+        elif pyxel.btnp(pyxel.KEY_5):
+            self.mago.item_selecionado = self.mago.itens_equipados[4]
+
+        if pyxel.btnp(pyxel.KEY_6):
+            self.mago.magia_selecionada = self.mago.magias_equipadas[0]
+        elif pyxel.btnp(pyxel.KEY_7):
+            self.mago.magia_selecionada = self.mago.magias_equipadas[1]
+        elif pyxel.btnp(pyxel.KEY_8):
+            self.mago.magia_selecionada = self.mago.magias_equipadas[2]
+        elif pyxel.btnp(pyxel.KEY_9):
+            self.mago.magia_selecionada = self.mago.magias_equipadas[3]
         
     def update(self):
+        if self.tela_aberta == "carta":
+            if pyxel.btnp(pyxel.KEY_RETURN):
+                if self.pagina_carta < len(self.paginas_carta) - 1:
+                    self.pagina_carta += 1
+                else:
+                    self.tela_aberta = None
+
+            return
+
         if self.estado_jogo == "menu":
             if pyxel.btnp(pyxel.KEY_RETURN):
                 self.estado_jogo = "prologo"
 
             return
+
+        self.atualizarHotbar()
 
         if self.estado_jogo == "prologo":
             if self.tela_aberta == "bau":
@@ -761,6 +842,9 @@ class Jogo:
                 return
 
             self.atualizarInventario()
+
+            if self.tela_aberta != None:
+                return
 
             if pyxel.btnp(pyxel.KEY_RETURN):
                 self.estado_jogo = "exploracao"
@@ -772,6 +856,11 @@ class Jogo:
                     self.bau_aberto = self.bau_prologo
                     self.tela_aberta = "bau"
                     self.modo_bau = "retirar"
+                    return
+
+                elif self.mago.item_selecionado == self.carta_prologo:
+                    self.pagina_carta = 0
+                    self.tela_aberta = "carta"
                     return
 
             self.atualizarMovimentoMago()
@@ -914,26 +1003,6 @@ class Jogo:
 
                                 self.mago.item_selecionado = None
                                 self.item_inventario_selecionado = None
-
-        if pyxel.btnp(pyxel.KEY_1):
-            self.mago.item_selecionado = self.mago.itens_equipados[0]
-        elif pyxel.btnp(pyxel.KEY_2):
-            self.mago.item_selecionado = self.mago.itens_equipados[1]
-        elif pyxel.btnp(pyxel.KEY_3):
-            self.mago.item_selecionado = self.mago.itens_equipados[2]
-        elif pyxel.btnp(pyxel.KEY_4):
-            self.mago.item_selecionado = self.mago.itens_equipados[3]
-        elif pyxel.btnp(pyxel.KEY_5):
-            self.mago.item_selecionado = self.mago.itens_equipados[4]
-
-        if pyxel.btnp(pyxel.KEY_6):
-            self.mago.magia_selecionada = self.mago.magias_equipadas[0]
-        elif pyxel.btnp(pyxel.KEY_7):
-            self.mago.magia_selecionada = self.mago.magias_equipadas[1]
-        elif pyxel.btnp(pyxel.KEY_8):
-            self.mago.magia_selecionada = self.mago.magias_equipadas[2]
-        elif pyxel.btnp(pyxel.KEY_9):
-            self.mago.magia_selecionada = self.mago.magias_equipadas[3]
 
         if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
             if self.mago.magia_selecionada == self.disparo_arcano:
@@ -1366,6 +1435,7 @@ class Jogo:
         for i in range(5):
             item = self.mago.itens_equipados[i]
             imagem_y = None
+            imagem_x = 0
 
             if item == self.pocao_vida:
                 imagem_y = 0
@@ -1375,10 +1445,13 @@ class Jogo:
                 imagem_y = 32
             elif item == self.pele_montanha:
                 imagem_y = 48
+            elif item == self.carta_prologo:
+                imagem_x = 16
+                imagem_y = 0
 
             if imagem_y != None:
                 x_item = 4 + i * 17
-                pyxel.blt(x_item, 103, 2, 0, imagem_y, 16, 16, 0, scale=0.7)
+                pyxel.blt(x_item, 103, 2, imagem_x, imagem_y, 16, 16, 0, scale=0.7)
 
         for i in range(4):
             magia = self.mago.magias_equipadas[i]
@@ -1453,6 +1526,37 @@ class Jogo:
                 pyxel.text(25, 90, "EXCLUA " + str(quantidade_excluir) + " ITEM(NS)", 8)
             else:
                 pyxel.text(40, 90, "I: fechar  X: excluir", 6)
+
+        if self.tela_aberta == "carta":
+            pyxel.rect(5, 6, 150, 94, 4)
+            pyxel.rect(7, 8, 146, 90, 9)
+            pyxel.rect(9, 10, 142, 86, 15)
+            pyxel.rectb(9, 10, 142, 86, 4)
+
+            pyxel.rect(13, 13, 3, 2, 10)
+            pyxel.rect(143, 13, 3, 2, 10)
+            pyxel.rect(13, 90, 3, 2, 9)
+            pyxel.rect(143, 90, 3, 2, 9)
+            pyxel.line(14, 26, 146, 26, 4)
+
+            pyxel.text(48, 16, "CARTA", 4)
+
+            for i in range(len(self.paginas_carta[self.pagina_carta])):
+                pyxel.text(
+                    14,
+                    32 + i * 7,
+                    self.paginas_carta[self.pagina_carta][i],
+                    0
+                )
+
+            pyxel.text(
+                12,
+                83,
+                "PAGINA " + str(self.pagina_carta + 1)
+                + "/" + str(len(self.paginas_carta)),
+                4
+            )
+            pyxel.text(88, 83, "ENTER: avancar", 4)
 
         if self.tela_aberta == "bau":
             if self.bau_aberto != None:
