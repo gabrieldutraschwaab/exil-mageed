@@ -219,6 +219,9 @@ class Inimigo:
         self.direcao_busca = 0
         self.passos_busca = 0
         self.tempo_ataque = 0
+        self.tempo_travado = 0
+        self.passos_desvio = 0
+        self.direcao_desvio = 0
     
     def modificarVida(self, modificacao):
         self.vida += modificacao
@@ -295,6 +298,7 @@ class Jogo:
         pyxel.images[0].load(0, 0, "mage.png")
         pyxel.images[0].load(0, 32, "lutador_demoniaco.png")
         pyxel.images[0].load(0, 48, "vampiro_1.png")
+        pyxel.images[0].load(0, 64, "cenario_vampiros.png")
         pyxel.images[0].load(0, 128, "fundo_vampiros.png")
         pyxel.images[1].load(0, 0, "disparo_arcano.png")
         pyxel.images[1].load(0, 32, "bola_fogo.png")
@@ -339,8 +343,10 @@ class Jogo:
         self.armadura_soldado = Item("Armadura de Soldado", "passivo", "defesa", 15, False, "comum", 0)
         self.coracao_tita = Item("Coracao do Tita", "ativo", "forca", 50, True, "epico", 300)
         self.pele_montanha = Item("Pele da Montanha", "ativo", "defesa", 60, True, "epico", 300)
-        self.bau_magias = Bau(35, 70, 16, 16, "magias", [self.disparo_arcano, self.bola_fogo, self.barreira_cristal, self.explosao_arcana, self.correntes_abismo], 6)
-        self.bau_itens = Bau(70, 70, 16, 16, "itens", [self.armadura_soldado, self.coracao_tita, self.pele_montanha], 6)
+        self.bau_magias = Bau(140, 22, 16, 16, "magias", [self.bola_fogo], 6)
+        self.bau_itens = Bau(140, 44, 16, 16, "itens", [self.armadura_soldado], 6)
+        self.bau_magias_2 = Bau(4, 82, 16, 16, "magias", [self.barreira_cristal], 6)
+        self.bau_itens_2 = Bau(4, 60, 16, 16, "itens", [self.pele_montanha], 6)
         self.baus = [self.bau_magias, self.bau_itens]
         self.carta_prologo = Item("Carta", "especial", "historia", 0, False, "comum", 0)
         self.paginas_carta = [
@@ -402,52 +408,50 @@ class Jogo:
         self.tempo_pele_montanha = 0
         self.aumento_pele_montanha = 0
         self.tempo_efeito_correntes = 0
-        self.parede = Parede(75, 20, 3, 32)
-        self.arbusto = Arbusto(55, 45, 16, 16)
-        self.porta = Porta(25, 45, 3, 32)
+        self.paredes = [
+            Parede(96, 20, 16, 16),
+            Parede(96, 52, 16, 16),
+            Parede(48, 52, 16, 16),
+            Parede(48, 84, 16, 16),
+            Parede(16, 36, 48, 16),
+            Parede(96, 68, 48, 16)
+        ]
+        self.arbustos = [
+            Arbusto(80, 20, 16, 16),
+            Arbusto(64, 84, 16, 16)
+        ]
+        self.portas = [
+            Porta(96, 36, 16, 16),
+            Porta(48, 68, 16, 16)
+        ]
         self.lutador_demoniaco = Inimigo("Lutador Demoniaco", 240, 65, 55, 65, 35, 80, 120, 35, 16, 16, 3)
         self.lutador_demoniaco.tipo = "demonio"
         self.lutador_demoniaco.imagem_y = 32
         self.lutador_demoniaco.cor_transparente = 0
-        self.vampiro_1 = Inimigo("Guarda Vampiro", 120, 40, 30, 50, 30, 40, 120, 35, 16, 16, 1)
+        self.lutador_demoniaco.raio_ataque = 20
+
+        self.vampiro_1 = Inimigo("Guarda Vampiro", 120, 52, 30, 50, 30, 40, 120, 35, 16, 16, 1)
         self.vampiro_1.tipo = "vampiro"
         self.vampiro_1.imagem_y = 48
         self.vampiro_1.cor_transparente = 11
+        self.vampiro_1.raio_deteccao = 45
+        self.vampiro_1.raio_ataque = 12
+
+        self.vampiro_2 = Inimigo("Vampiro Sentinela", 180, 72, 40, 65, 35, 50, 24, 69, 16, 16, 2)
+        self.vampiro_2.tipo = "vampiro"
+        self.vampiro_2.imagem_y = 48
+        self.vampiro_2.cor_transparente = 11
+        self.vampiro_2.raio_deteccao = 55
+        self.vampiro_2.raio_ataque = 16
+
         self.inimigo_atual = self.vampiro_1
         pyxel.run(self.update, self.draw)
 
-    def paredeBloqueiaVisao(self, inimigo):
+    def linhaBloqueada(self, inimigo, objeto):
         centro_mago_x = self.mago.x + 8
         centro_mago_y = self.mago.y + 8
         centro_inimigo_x = inimigo.x + 8
         centro_inimigo_y = inimigo.y + 8
-
-        mago_na_esquerda = centro_mago_x < self.parede.x
-        inimigo_na_esquerda = centro_inimigo_x < self.parede.x
-
-        if mago_na_esquerda == inimigo_na_esquerda:
-            return False
-
-        distancia_x = centro_mago_x - centro_inimigo_x
-        distancia_ate_parede = self.parede.x - centro_inimigo_x
-        parte_do_caminho = distancia_ate_parede / distancia_x
-
-        altura_da_visao = centro_inimigo_y + (centro_mago_y - centro_inimigo_y) * parte_do_caminho
-
-        if altura_da_visao >= self.parede.y and altura_da_visao <= self.parede.y + self.parede.altura:
-            return True
-        else:
-            return False
-
-    def arbustoBloqueiaVisao(self, inimigo):
-        centro_mago_x = self.mago.x + 8
-        centro_mago_y = self.mago.y + 8
-        centro_inimigo_x = inimigo.x + 8
-        centro_inimigo_y = inimigo.y + 8
-
-        if centro_mago_x >= self.arbusto.x and centro_mago_x <= self.arbusto.x + self.arbusto.largura:
-            if centro_mago_y >= self.arbusto.y and centro_mago_y <= self.arbusto.y + self.arbusto.altura:
-                return True
 
         distancia_x = centro_mago_x - centro_inimigo_x
         distancia_y = centro_mago_y - centro_inimigo_y
@@ -460,38 +464,58 @@ class Jogo:
             ponto_x = centro_inimigo_x + distancia_x * passo / distancia
             ponto_y = centro_inimigo_y + distancia_y * passo / distancia
 
-            if ponto_x >= self.arbusto.x and ponto_x <= self.arbusto.x + self.arbusto.largura:
-                if ponto_y >= self.arbusto.y and ponto_y <= self.arbusto.y + self.arbusto.altura:
+            if ponto_x >= objeto.x and ponto_x <= objeto.x + objeto.largura:
+                if ponto_y >= objeto.y and ponto_y <= objeto.y + objeto.altura:
                     return True
 
         return False
 
-    def colisaoParede(self, personagem):
-        colisaoX = personagem.x + 12 > self.parede.x and personagem.x + 4 < self.parede.x + self.parede.largura
-        colisaoY = personagem.y + 14 > self.parede.y and personagem.y + 4 < self.parede.y + self.parede.altura
+    def paredeBloqueiaVisao(self, inimigo):
+        for parede in self.paredes:
+            if self.linhaBloqueada(inimigo, parede):
+                return True
 
-        if colisaoX and colisaoY:
+        return False
+
+    def arbustoBloqueiaVisao(self, inimigo):
+        if self.magoNoArbusto():
             return True
-        else:
-            return False
+
+        for arbusto in self.arbustos:
+            if self.linhaBloqueada(inimigo, arbusto):
+                return True
+
+        return False
+
+    def colisaoParede(self, personagem):
+        for parede in self.paredes:
+            colisaoX = personagem.x + 12 > parede.x and personagem.x + 4 < parede.x + parede.largura
+            colisaoY = personagem.y + 14 > parede.y and personagem.y + 4 < parede.y + parede.altura
+
+            if colisaoX and colisaoY:
+                return True
+
+        return False
 
     def colisaoArbusto(self, personagem):
-        colisaoX = personagem.x + 12 > self.arbusto.x and personagem.x + 4 < self.arbusto.x + self.arbusto.largura
-        colisaoY = personagem.y + 14 > self.arbusto.y and personagem.y + 4 < self.arbusto.y + self.arbusto.altura
+        for arbusto in self.arbustos:
+            colisaoX = personagem.x + 12 > arbusto.x and personagem.x + 4 < arbusto.x + arbusto.largura
+            colisaoY = personagem.y + 14 > arbusto.y and personagem.y + 4 < arbusto.y + arbusto.altura
 
-        if colisaoX and colisaoY:
-            return True
-        else:
-            return False
+            if colisaoX and colisaoY:
+                return True
+
+        return False
 
     def colisaoPorta(self, personagem):
-        colisaoX = personagem.x + 12 > self.porta.x and personagem.x + 4 < self.porta.x + self.porta.largura
-        colisaoY = personagem.y + 14 > self.porta.y and personagem.y + 4 < self.porta.y + self.porta.altura
+        for porta in self.portas:
+            colisaoX = personagem.x + 12 > porta.x and personagem.x + 4 < porta.x + porta.largura
+            colisaoY = personagem.y + 14 > porta.y and personagem.y + 4 < porta.y + porta.altura
 
-        if colisaoX and colisaoY:
-            return True
-        else:
-            return False
+            if colisaoX and colisaoY:
+                return True
+
+        return False
 
     def colisaoInimigo(self, inimigo):
         colisaoX = self.mago.x + 12 > inimigo.x + 4 and self.mago.x + 4 < inimigo.x + 12
@@ -506,9 +530,10 @@ class Jogo:
         centro_mago_x = self.mago.x + 8
         centro_mago_y = self.mago.y + 8
 
-        if centro_mago_x >= self.arbusto.x and centro_mago_x <= self.arbusto.x + self.arbusto.largura:
-            if centro_mago_y >= self.arbusto.y and centro_mago_y <= self.arbusto.y + self.arbusto.altura:
-                return True
+        for arbusto in self.arbustos:
+            if centro_mago_x >= arbusto.x and centro_mago_x <= arbusto.x + arbusto.largura:
+                if centro_mago_y >= arbusto.y and centro_mago_y <= arbusto.y + arbusto.altura:
+                    return True
 
         return False
 
@@ -574,6 +599,17 @@ class Jogo:
             return True
         else:
             return False
+
+    def projetilBateuObjeto(self):
+        centro_x = self.projetil.x + 8
+        centro_y = self.projetil.y + 8
+
+        for objeto in self.paredes + self.portas + self.arbustos:
+            if centro_x >= objeto.x and centro_x <= objeto.x + objeto.largura:
+                if centro_y >= objeto.y and centro_y <= objeto.y + objeto.altura:
+                    return True
+
+        return False
 
     def atualizarBau(self):
         if self.tela_aberta == "bau":
@@ -740,7 +776,7 @@ class Jogo:
                                 self.mago.item_selecionado = self.item_inventario_selecionado
 
             if pyxel.btnp(pyxel.KEY_X):
-                if self.item_inventario_selecionado != None:
+                if self.item_inventario_selecionado != None and self.item_inventario_selecionado != self.carta_prologo:
                     item_excluido = self.item_inventario_selecionado
 
                     for i in range(5):
@@ -787,7 +823,7 @@ class Jogo:
         if self.estado_jogo == "prologo":
             baus_colisao = [self.bau_prologo]
         else:
-            baus_colisao = self.baus
+            baus_colisao = []
 
         for bau in baus_colisao:
             colisaoX = self.mago.x + 12 > bau.x and self.mago.x + 4 < bau.x + bau.largura
@@ -832,6 +868,15 @@ class Jogo:
         elif pyxel.btnp(pyxel.KEY_9):
             self.mago.magia_selecionada = self.mago.magias_equipadas[3]
 
+    def inimigoBloqueado(self, inimigo):
+        if self.colisaoParede(inimigo) or self.colisaoArbusto(inimigo):
+            return True
+
+        if inimigo.tipo == "vampiro" and self.colisaoPorta(inimigo):
+            return True
+
+        return False
+
     def atualizarInimigo(self, inimigo):
         x_anterior_inimigo = inimigo.x
         y_anterior_inimigo = inimigo.y
@@ -840,7 +885,24 @@ class Jogo:
         distancia_y = self.mago.y - inimigo.y
         distancia_jogador = (distancia_x * distancia_x + distancia_y * distancia_y) ** 0.5
 
-        if inimigo.estado == "patrulha":
+        if inimigo.passos_desvio > 0 and inimigo.estado != "congelado":
+            inimigo.tempo_movimento += inimigo.velocidade
+
+            if inimigo.tempo_movimento >= 100:
+                inimigo.tempo_movimento -= 100
+
+                if inimigo.direcao_desvio == 0:
+                    inimigo.x += 1
+                elif inimigo.direcao_desvio == 1:
+                    inimigo.y += 1
+                elif inimigo.direcao_desvio == 2:
+                    inimigo.x -= 1
+                else:
+                    inimigo.y -= 1
+
+                inimigo.passos_desvio -= 1
+
+        elif inimigo.estado == "patrulha":
             if distancia_jogador <= inimigo.raio_deteccao and self.paredeBloqueiaVisao(inimigo) == False and self.arbustoBloqueiaVisao(inimigo) == False:
                 inimigo.estado = "perseguicao"
 
@@ -854,13 +916,13 @@ class Jogo:
                 inimigo.passos_busca = 0
 
             else:
-                inimigo.ultimo_x_jogador = self.mago.x
-                inimigo.ultimo_y_jogador = self.mago.y
+                inimigo.ultimo_x_jogador = int(self.mago.x)
+                inimigo.ultimo_y_jogador = int(self.mago.y)
 
-                inimigo.tempo_movimento += 1
+                inimigo.tempo_movimento += inimigo.velocidade
 
-                if inimigo.tempo_movimento == 2:
-                    inimigo.tempo_movimento = 0
+                if inimigo.tempo_movimento >= 100:
+                    inimigo.tempo_movimento -= 100
 
                     if self.mago.x < inimigo.x:
                         inimigo.x -= 1
@@ -880,10 +942,10 @@ class Jogo:
             else:
                 if inimigo.tempo_busca > 0:
                     inimigo.tempo_busca -= 1
-                    inimigo.tempo_movimento += 1
+                    inimigo.tempo_movimento += inimigo.velocidade
 
-                    if inimigo.tempo_movimento == 2:
-                        inimigo.tempo_movimento = 0
+                    if inimigo.tempo_movimento >= 100:
+                        inimigo.tempo_movimento -= 100
 
                         if inimigo.chegou_ultima_posicao == False:
                             if inimigo.x < inimigo.ultimo_x_jogador:
@@ -961,50 +1023,20 @@ class Jogo:
                 else:
                     inimigo.estado = inimigo.estado_anterior
 
-        if self.colisaoParede(inimigo):
-            novo_x_inimigo = inimigo.x
+        if self.inimigoBloqueado(inimigo):
             novo_y_inimigo = inimigo.y
 
             inimigo.y = y_anterior_inimigo
 
-            if self.colisaoParede(inimigo):
+            if self.inimigoBloqueado(inimigo):
                 inimigo.x = x_anterior_inimigo
-            else:
-                inimigo.x = novo_x_inimigo
 
             inimigo.y = novo_y_inimigo
-            inimigo.x = x_anterior_inimigo
 
-            if self.colisaoParede(inimigo):
-                inimigo.y = y_anterior_inimigo
-            else:
-                inimigo.y = novo_y_inimigo
-
-        if self.colisaoArbusto(inimigo):
-            novo_x_inimigo = inimigo.x
-            novo_y_inimigo = inimigo.y
-
-            inimigo.y = y_anterior_inimigo
-
-            if self.colisaoArbusto(inimigo):
-                inimigo.x = x_anterior_inimigo
-            else:
-                inimigo.x = novo_x_inimigo
-
-            inimigo.y = novo_y_inimigo
-            inimigo.x = x_anterior_inimigo
-
-            if self.colisaoArbusto(inimigo):
-                inimigo.y = y_anterior_inimigo
-            else:
-                inimigo.y = novo_y_inimigo
-
-        if inimigo.tipo == "vampiro":
-            if self.colisaoPorta(inimigo):
-                inimigo.x = x_anterior_inimigo
+            if self.inimigoBloqueado(inimigo):
                 inimigo.y = y_anterior_inimigo
 
-        else:
+        if inimigo.tipo != "vampiro":
             if inimigo.passando_porta == True:
                 if self.colisaoPorta(inimigo) == False:
                     inimigo.passando_porta = False
@@ -1029,6 +1061,20 @@ class Jogo:
         elif inimigo.y > 86:
             inimigo.y = 86
 
+        if inimigo.estado == "perseguicao" or inimigo.estado == "busca" or inimigo.estado == "retorno":
+            if inimigo.x == x_anterior_inimigo and inimigo.y == y_anterior_inimigo and self.colisaoInimigo(inimigo) == False:
+                inimigo.tempo_travado += 1
+            else:
+                inimigo.tempo_travado = 0
+
+            if inimigo.tempo_travado >= 20:
+                inimigo.tempo_travado = 0
+                inimigo.passos_desvio = 20
+                inimigo.direcao_desvio += 1
+
+                if inimigo.direcao_desvio > 3:
+                    inimigo.direcao_desvio = 0
+
         if inimigo.vida > 0:
             inimigo.tempo_animacao += 1
 
@@ -1043,9 +1089,13 @@ class Jogo:
             inimigo.tempo_ataque -= 1
 
         if inimigo.vida > 0 and inimigo.estado != "congelado" and self.magoNoArbusto() == False:
-            if self.colisaoInimigo(inimigo) and inimigo.tempo_ataque == 0:
+            distancia_x = self.mago.x - inimigo.x
+            distancia_y = self.mago.y - inimigo.y
+            distancia_ataque = (distancia_x * distancia_x + distancia_y * distancia_y) ** 0.5
+
+            if distancia_ataque <= inimigo.raio_ataque and self.paredeBloqueiaVisao(inimigo) == False and inimigo.tempo_ataque == 0:
                 self.aplicarDanoMago(inimigo.forca // 4)
-                inimigo.tempo_ataque = 60
+                inimigo.tempo_ataque = 40
         
     def update(self):
         if self.tela_aberta == "carta":
@@ -1055,12 +1105,31 @@ class Jogo:
                 else:
                     self.tela_aberta = None
                     self.estado_jogo = "vampiros"
-                    self.mago.x = 72
+                    self.mago.x = 10
                     self.mago.y = 86
+
+                    if self.carta_prologo in self.mago.inventario:
+                        self.mago.inventario.remove(self.carta_prologo)
+
+                    for i in range(5):
+                        if self.mago.itens_equipados[i] == self.carta_prologo:
+                            self.mago.itens_equipados[i] = None
+
+                    if self.mago.item_selecionado == self.carta_prologo:
+                        self.mago.item_selecionado = None
+
+                    if self.item_inventario_selecionado == self.carta_prologo:
+                        self.item_inventario_selecionado = None
 
             return
 
         if self.estado_jogo == "menu":
+            if pyxel.btnp(pyxel.KEY_RETURN):
+                self.estado_jogo = "controles"
+
+            return
+
+        if self.estado_jogo == "controles":
             if pyxel.btnp(pyxel.KEY_RETURN):
                 self.estado_jogo = "prologo"
 
@@ -1292,9 +1361,17 @@ class Jogo:
             if self.projetil.x < 0 or self.projetil.x > 144 or self.projetil.y < 20 or self.projetil.y > 86:
                 self.projetil = None
 
+            elif self.projetilBateuObjeto():
+                self.projetil = None
+
             elif self.colisaoProjetil(self.inimigo_atual):
                 self.inimigo_atual.modificarVida(-self.projetil.dano)
                 self.projetil = None
+
+        if self.inimigo_atual == self.vampiro_1 and self.vampiro_1.vida == 0:
+            self.inimigo_atual = self.vampiro_2
+            self.baus.append(self.bau_magias_2)
+            self.baus.append(self.bau_itens_2)
 
         if self.tempo_mensagem > 0:
             self.tempo_mensagem -= 1
@@ -1314,12 +1391,50 @@ class Jogo:
             pyxel.text(54, 72, "ESC PARA SAIR", 6)
             return
 
+        if self.estado_jogo == "controles":
+            pyxel.text(62, 6, "COMANDOS", 10)
+
+            comandos = [
+                ["W A S D", "andar"],
+                ["MOUSE", "mirar a magia"],
+                ["CLIQUE", "lancar a magia"],
+                ["1 a 5", "selecionar item"],
+                ["6 a 9", "selecionar magia"],
+                ["E", "usar item / abrir bau"],
+                ["I", "inventario de itens"],
+                ["M", "inventario de magias"],
+                ["X", "excluir no inventario"],
+                ["G", "guardar no bau"],
+                ["P", "pausar"]
+            ]
+
+            for i in range(len(comandos)):
+                pyxel.text(12, 18 + i * 8, comandos[i][0], 10)
+                pyxel.text(52, 18 + i * 8, comandos[i][1], 7)
+
+            pyxel.text(38, 110, "ENTER para comecar", 6)
+            return
+
         if self.estado_jogo == "prologo":
             pyxel.pal(1, 11)
             pyxel.blt(0, 20, 2, 0, 96, 160, 82, 0)
             pyxel.pal()
         elif self.estado_jogo == "vampiros":
             pyxel.blt(0, 20, 0, 0, 128, 160, 82)
+
+            if self.inimigo_atual.vida > 0:
+                pyxel.circb(self.inimigo_atual.x + 8, self.inimigo_atual.y + 8, self.inimigo_atual.raio_ataque, 8)
+
+
+            for bau in self.baus:
+                if bau.aberto == False:
+                    imagem_x = 0
+                    imagem_y = 64
+                else:
+                    imagem_x = 16
+                    imagem_y = 80
+
+                pyxel.blt(bau.x, bau.y, 2, imagem_x, imagem_y, 16, 16, 0)
 
         pyxel.rect(0, 0, 160, 20, 1)
 
@@ -1366,13 +1481,23 @@ class Jogo:
                 else:
                     pyxel.text(40, 95, "Carta encontrada!", 10)
 
+            elif self.tela_aberta == None and self.mago.item_selecionado == self.carta_prologo:
+                pyxel.text(28, 95, "Pressione E para ler", 10)
+
             if self.projetil != None:
                 pyxel.blt(self.projetil.x, self.projetil.y, 1, 0, self.projetil.imagem_y, 16, 16, 0)
 
         if self.estado_jogo != "prologo":
-            pyxel.rect(self.parede.x, self.parede.y, self.parede.largura, self.parede.altura, 6)
-            pyxel.rect(self.arbusto.x, self.arbusto.y, self.arbusto.largura, self.arbusto.altura, 3)
-            pyxel.rect(self.porta.x, self.porta.y, self.porta.largura, self.porta.altura, 4)
+            for parede in self.paredes:
+                for bloco_x in range(0, parede.largura, 16):
+                    for bloco_y in range(0, parede.altura, 16):
+                        pyxel.blt(parede.x + bloco_x, parede.y + bloco_y, 0, 0, 64, 16, 16)
+
+            for porta in self.portas:
+                pyxel.blt(porta.x, porta.y, 0, 16, 64, 16, 16)
+
+            for arbusto in self.arbustos:
+                pyxel.blt(arbusto.x, arbusto.y, 0, 32, 64, 16, 16)
 
             if self.inimigo_atual.vida > 0:
                 x_inimigo = self.inimigo_atual.quadro * 16
@@ -1384,15 +1509,6 @@ class Jogo:
                 pyxel.blt(self.projetil.x, self.projetil.y, 1, 0, self.projetil.imagem_y, 16, 16, 0)
 
             for bau in self.baus:
-                if bau.aberto == False:
-                    imagem_x = 0
-                    imagem_y = 64
-                else:
-                    imagem_x = 16
-                    imagem_y = 80
-
-                pyxel.blt(bau.x, bau.y, 2, imagem_x, imagem_y, 16, 16, 0)
-
                 if self.pertoBau(bau):
                     if self.tela_aberta == None:
                         pyxel.text(24, 95, "Pressione E para abrir", 7)
