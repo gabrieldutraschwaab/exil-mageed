@@ -222,6 +222,7 @@ class Inimigo:
         self.tempo_travado = 0
         self.passos_desvio = 0
         self.direcao_desvio = 0
+        self.altura_sprite = 16
     
     def modificarVida(self, modificacao):
         self.vida += modificacao
@@ -299,6 +300,9 @@ class Jogo:
         pyxel.images[0].load(0, 32, "lutador_demoniaco.png")
         pyxel.images[0].load(0, 48, "vampiro_1.png")
         pyxel.images[0].load(0, 64, "cenario_vampiros.png")
+        pyxel.images[0].load(0, 80, "demonio_2.png")
+        pyxel.images[0].load(0, 104, "cenario_demonios.png")
+        pyxel.images[1].load(0, 168, "fundo_demonios.png")
         pyxel.images[0].load(0, 128, "fundo_vampiros.png")
         pyxel.images[1].load(0, 0, "disparo_arcano.png")
         pyxel.images[1].load(0, 32, "bola_fogo.png")
@@ -311,6 +315,7 @@ class Jogo:
         pyxel.images[2].load(0, 48, "pele_montanha.png")
         pyxel.images[2].load(0, 64, "bau.png")
         pyxel.images[2].load(16, 0, "carta.png")
+        pyxel.images[2].load(32, 0, "elixir_mana.png")
 
         self.paleta_original = [pyxel.colors[i] for i in range(16)]
         self.paleta_floresta = self.paleta_original.copy()
@@ -336,17 +341,22 @@ class Jogo:
         self.bola_fogo = Magia("Bola de Fogo", 35, 20, 30, 45, 2, 1, 100)
         self.barreira_cristal = Magia("Barreira de Cristal", 0, 25, 60, 0, 3, 1, 100)
         self.explosao_arcana = Magia("Explosao Arcana", 50, 35, 70, 0, 4, 1, 100)
-        self.correntes_abismo = Magia("Correntes do Abismo", 0, 20, 60, 50, 1, 1, 100)
+        self.correntes_abismo = Magia("Correntes do Abismo", 0, 20, 60, 40, 1, 1, 100)
         self.mago.aprenderMagia(self.disparo_arcano)
         self.mago.magias_equipadas[0] = self.disparo_arcano
         self.pocao_vida = Item("Pocao de Vida", "ativo", "vida", 40, True, "comum", 0)
         self.armadura_soldado = Item("Armadura de Soldado", "passivo", "defesa", 15, False, "comum", 0)
         self.coracao_tita = Item("Coracao do Tita", "ativo", "forca", 50, True, "epico", 300)
         self.pele_montanha = Item("Pele da Montanha", "ativo", "defesa", 60, True, "epico", 300)
+        self.elixir_mana = Item("Elixir de Mana", "ativo", "mana", 50, True, "raro", 0)
         self.bau_magias = Bau(140, 22, 16, 16, "magias", [self.bola_fogo], 6)
         self.bau_itens = Bau(140, 44, 16, 16, "itens", [self.armadura_soldado], 6)
         self.bau_magias_2 = Bau(4, 82, 16, 16, "magias", [self.barreira_cristal], 6)
         self.bau_itens_2 = Bau(4, 60, 16, 16, "itens", [self.pele_montanha], 6)
+        self.bau_demonio_magias = Bau(140, 22, 16, 16, "magias", [self.correntes_abismo], 6)
+        self.bau_demonio_itens = Bau(140, 44, 16, 16, "itens", [self.coracao_tita], 6)
+        self.bau_demonio_magias_2 = Bau(4, 82, 16, 16, "magias", [self.explosao_arcana], 6)
+        self.bau_demonio_itens_2 = Bau(4, 60, 16, 16, "itens", [self.elixir_mana], 6)
         self.baus = [self.bau_magias, self.bau_itens]
         self.carta_prologo = Item("Carta", "especial", "historia", 0, False, "comum", 0)
         self.paginas_carta = [
@@ -388,7 +398,30 @@ class Jogo:
             ]
         ]
 
+        self.paginas_demonios = [
+            [
+                "Um portao no reino dos vampiros",
+                "se abre diante de voce.",
+                "Um calor sufocante sobe do chao e",
+                "cheiro de enxofre contamina o ar.",
+                "Voce chegou ao reino dos demonios,",
+                "onde o Pergaminho Proibido espera."
+            ],
+            [
+                "Os demonios sao mais fortes e nao",
+                "respeitam portas, eles demoram,",
+                "mas atravessam. Use tudo o que",
+                "voce conquistou ate aqui.",
+                "",
+                "Nao ha mais volta."
+            ]
+        ]
+
         self.pagina_carta = 0
+        self.titulo_carta = "CARTA"
+        self.portal_ativo = False
+        self.portal_x = 72
+        self.portal_y = 52
         self.bau_prologo = Bau(72, 45, 16, 16, "itens", [self.carta_prologo, self.pocao_vida], 6)
         self.bau_aberto = None
         self.modo_bau = "retirar"
@@ -424,11 +457,20 @@ class Jogo:
             Porta(96, 36, 16, 16),
             Porta(48, 68, 16, 16)
         ]
-        self.lutador_demoniaco = Inimigo("Lutador Demoniaco", 240, 65, 55, 65, 35, 80, 120, 35, 16, 16, 3)
+        self.lutador_demoniaco = Inimigo("Lutador Demoniaco", 240, 80, 55, 65, 35, 80, 120, 35, 16, 16, 3)
         self.lutador_demoniaco.tipo = "demonio"
         self.lutador_demoniaco.imagem_y = 32
         self.lutador_demoniaco.cor_transparente = 0
+        self.lutador_demoniaco.raio_deteccao = 60
         self.lutador_demoniaco.raio_ataque = 20
+
+        self.demonio_2 = Inimigo("Demonio Infernal", 300, 92, 60, 70, 40, 90, 24, 69, 16, 16, 4)
+        self.demonio_2.tipo = "demonio"
+        self.demonio_2.imagem_y = 80
+        self.demonio_2.cor_transparente = 11
+        self.demonio_2.raio_deteccao = 65
+        self.demonio_2.raio_ataque = 24
+        self.demonio_2.altura_sprite = 23
 
         self.vampiro_1 = Inimigo("Guarda Vampiro", 120, 52, 30, 50, 30, 40, 120, 35, 16, 16, 1)
         self.vampiro_1.tipo = "vampiro"
@@ -1104,22 +1146,33 @@ class Jogo:
                     self.pagina_carta += 1
                 else:
                     self.tela_aberta = None
-                    self.estado_jogo = "vampiros"
-                    self.mago.x = 10
-                    self.mago.y = 86
 
-                    if self.carta_prologo in self.mago.inventario:
-                        self.mago.inventario.remove(self.carta_prologo)
+                    if self.estado_jogo == "prologo":
+                        self.estado_jogo = "vampiros"
+                        self.mago.x = 10
+                        self.mago.y = 86
 
-                    for i in range(5):
-                        if self.mago.itens_equipados[i] == self.carta_prologo:
-                            self.mago.itens_equipados[i] = None
+                        if self.carta_prologo in self.mago.inventario:
+                            self.mago.inventario.remove(self.carta_prologo)
 
-                    if self.mago.item_selecionado == self.carta_prologo:
-                        self.mago.item_selecionado = None
+                        for i in range(5):
+                            if self.mago.itens_equipados[i] == self.carta_prologo:
+                                self.mago.itens_equipados[i] = None
 
-                    if self.item_inventario_selecionado == self.carta_prologo:
-                        self.item_inventario_selecionado = None
+                        if self.mago.item_selecionado == self.carta_prologo:
+                            self.mago.item_selecionado = None
+
+                        if self.item_inventario_selecionado == self.carta_prologo:
+                            self.item_inventario_selecionado = None
+
+                    elif self.estado_jogo == "vampiros":
+                        self.estado_jogo = "demonios"
+                        self.mago.x = 10
+                        self.mago.y = 86
+                        self.projetil = None
+                        self.baus = [self.bau_demonio_magias, self.bau_demonio_itens]
+                        self.portal_ativo = False
+                        self.inimigo_atual = self.lutador_demoniaco
 
             return
 
@@ -1134,6 +1187,24 @@ class Jogo:
                 self.estado_jogo = "prologo"
 
             return
+
+        if pyxel.btnp(pyxel.KEY_N) and self.tela_aberta == None:
+            if self.estado_jogo == "prologo":
+                self.estado_jogo = "vampiros"
+            elif self.estado_jogo == "vampiros":
+                self.estado_jogo = "demonios"
+                self.vampiro_1.vida = 0
+                self.vampiro_2.vida = 0
+                self.inimigo_atual = self.lutador_demoniaco
+                self.baus = [self.bau_demonio_magias, self.bau_demonio_itens]
+
+            self.mago.x = 10
+            self.mago.y = 86
+            return
+
+        if pyxel.btnp(pyxel.KEY_K) and self.tela_aberta == None:
+            if self.estado_jogo == "vampiros" or self.estado_jogo == "demonios":
+                self.inimigo_atual.vida = 0
 
         self.atualizarHotbar()
 
@@ -1277,6 +1348,11 @@ class Jogo:
                                 self.tempo_pele_montanha = item_usado.duracao
                                 item_foi_usado = True
 
+                        elif item_usado == self.elixir_mana:
+                            if self.mago.mana < 100:
+                                self.mago.modificarMana(item_usado.valor)
+                                item_foi_usado = True
+
                         if item_foi_usado:
                             if item_usado.consumivel:
                                 self.mago.inventario.remove(item_usado)
@@ -1341,7 +1417,7 @@ class Jogo:
                         if distancia <= self.correntes_abismo.alcance:
                             self.inimigo_atual.estado_anterior = self.inimigo_atual.estado
                             self.inimigo_atual.estado = "congelado"
-                            self.inimigo_atual.tempo_congelado = 300
+                            self.inimigo_atual.tempo_congelado = 210
                             self.mago.modificarMana(-self.correntes_abismo.mana)
                             self.tempo_efeito_correntes = 15
 
@@ -1372,6 +1448,25 @@ class Jogo:
             self.inimigo_atual = self.vampiro_2
             self.baus.append(self.bau_magias_2)
             self.baus.append(self.bau_itens_2)
+
+        if self.inimigo_atual == self.lutador_demoniaco and self.lutador_demoniaco.vida == 0:
+            self.inimigo_atual = self.demonio_2
+            self.baus.append(self.bau_demonio_magias_2)
+            self.baus.append(self.bau_demonio_itens_2)
+
+        if self.estado_jogo == "vampiros" and self.vampiro_2.vida == 0:
+            self.portal_ativo = True
+
+        if self.portal_ativo and self.estado_jogo == "vampiros":
+            centro_x = self.mago.x + 8
+            centro_y = self.mago.y + 8
+
+            if centro_x >= self.portal_x and centro_x <= self.portal_x + 16:
+                if centro_y >= self.portal_y and centro_y <= self.portal_y + 16:
+                    self.paginas_carta = self.paginas_demonios
+                    self.pagina_carta = 0
+                    self.titulo_carta = "REINO DOS DEMONIOS"
+                    self.tela_aberta = "carta"
 
         if self.tempo_mensagem > 0:
             self.tempo_mensagem -= 1
@@ -1419,12 +1514,15 @@ class Jogo:
             pyxel.pal(1, 11)
             pyxel.blt(0, 20, 2, 0, 96, 160, 82, 0)
             pyxel.pal()
-        elif self.estado_jogo == "vampiros":
-            pyxel.blt(0, 20, 0, 0, 128, 160, 82)
+
+        elif self.estado_jogo == "vampiros" or self.estado_jogo == "demonios":
+            if self.estado_jogo == "vampiros":
+                pyxel.blt(0, 20, 0, 0, 128, 160, 82)
+            else:
+                pyxel.blt(0, 20, 1, 0, 168, 160, 82)
 
             if self.inimigo_atual.vida > 0:
                 pyxel.circb(self.inimigo_atual.x + 8, self.inimigo_atual.y + 8, self.inimigo_atual.raio_ataque, 8)
-
 
             for bau in self.baus:
                 if bau.aberto == False:
@@ -1488,20 +1586,28 @@ class Jogo:
                 pyxel.blt(self.projetil.x, self.projetil.y, 1, 0, self.projetil.imagem_y, 16, 16, 0)
 
         if self.estado_jogo != "prologo":
+            if self.estado_jogo == "demonios":
+                linha_cenario = 104
+            else:
+                linha_cenario = 64
+
             for parede in self.paredes:
                 for bloco_x in range(0, parede.largura, 16):
                     for bloco_y in range(0, parede.altura, 16):
-                        pyxel.blt(parede.x + bloco_x, parede.y + bloco_y, 0, 0, 64, 16, 16)
+                        pyxel.blt(parede.x + bloco_x, parede.y + bloco_y, 0, 0, linha_cenario, 16, 16)
 
             for porta in self.portas:
-                pyxel.blt(porta.x, porta.y, 0, 16, 64, 16, 16)
+                pyxel.blt(porta.x, porta.y, 0, 16, linha_cenario, 16, 16)
 
             for arbusto in self.arbustos:
-                pyxel.blt(arbusto.x, arbusto.y, 0, 32, 64, 16, 16)
+                pyxel.blt(arbusto.x, arbusto.y, 0, 32, linha_cenario, 16, 16)
+
+            if self.portal_ativo and self.estado_jogo == "vampiros":
+                pyxel.blt(self.portal_x, self.portal_y, 0, 48, 104, 16, 16, 11)
 
             if self.inimigo_atual.vida > 0:
                 x_inimigo = self.inimigo_atual.quadro * 16
-                pyxel.blt(self.inimigo_atual.x, self.inimigo_atual.y, 0, x_inimigo, self.inimigo_atual.imagem_y, 16, 16, self.inimigo_atual.cor_transparente)
+                pyxel.blt(self.inimigo_atual.x, self.inimigo_atual.y + 16 - self.inimigo_atual.altura_sprite, 0, x_inimigo, self.inimigo_atual.imagem_y, 16, self.inimigo_atual.altura_sprite, self.inimigo_atual.cor_transparente)
                 pyxel.text(self.inimigo_atual.x, self.inimigo_atual.y - 6, "V:" + str(self.inimigo_atual.vida), 7)
                 pyxel.text(self.inimigo_atual.x, self.inimigo_atual.y - 12, self.inimigo_atual.estado, 10)
 
@@ -1547,6 +1653,9 @@ class Jogo:
                 imagem_y = 48
             elif item == self.carta_prologo:
                 imagem_x = 16
+                imagem_y = 0
+            elif item == self.elixir_mana:
+                imagem_x = 32
                 imagem_y = 0
 
             if imagem_y != None:
@@ -1647,7 +1756,7 @@ class Jogo:
             pyxel.rect(143, 90, 3, 2, 9)
             pyxel.line(14, 26, 146, 26, 4)
 
-            pyxel.text(48, 16, "CARTA", 4)
+            pyxel.text(48, 16, self.titulo_carta, 4)
 
             for i in range(len(self.paginas_carta[self.pagina_carta])):
                 pyxel.text(
