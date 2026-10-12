@@ -405,6 +405,9 @@ class Jogo:
         self.porta = Porta(25, 45, 3, 32)
         self.lutador_demoniaco = Inimigo("Lutador Demoniaco", 240, 65, 55, 65, 35, 80, 120, 35, 16, 16, 3)
         self.lutador_demoniaco.tipo = "demonio"
+        self.vampiro_1 = Inimigo("Guarda Vampiro", 120, 40, 30, 50, 30, 40, 120, 35, 16, 16, 1)
+        self.vampiro_1.tipo = "vampiro"
+        self.inimigo_atual = self.vampiro_1
         pyxel.run(self.update, self.draw)
 
     def paredeBloqueiaVisao(self, inimigo):
@@ -1088,10 +1091,6 @@ class Jogo:
                 if self.projetil.x < 0 or self.projetil.x > 144 or self.projetil.y < 20 or self.projetil.y > 102:
                     self.projetil = None
 
-            if pyxel.btnp(pyxel.KEY_RETURN):
-                self.estado_jogo = "exploracao"
-                return
-
             if pyxel.btnp(pyxel.KEY_E):
                 if self.pertoBau(self.bau_prologo):
                     self.bau_prologo.aberto = True
@@ -1259,15 +1258,15 @@ class Jogo:
 
             elif self.mago.magia_selecionada == self.correntes_abismo:
                 if self.mago.mana >= self.correntes_abismo.mana:
-                    if self.lutador_demoniaco.vida > 0:
-                        distancia_x = self.mago.x - self.lutador_demoniaco.x
-                        distancia_y = self.mago.y - self.lutador_demoniaco.y
+                    if self.inimigo_atual.vida > 0:
+                        distancia_x = self.mago.x - self.inimigo_atual.x
+                        distancia_y = self.mago.y - self.inimigo_atual.y
                         distancia = (distancia_x * distancia_x + distancia_y * distancia_y) ** 0.5
 
                         if distancia <= self.correntes_abismo.alcance:
-                            self.lutador_demoniaco.estado_anterior = self.lutador_demoniaco.estado
-                            self.lutador_demoniaco.estado = "congelado"
-                            self.lutador_demoniaco.tempo_congelado = 300
+                            self.inimigo_atual.estado_anterior = self.inimigo_atual.estado
+                            self.inimigo_atual.estado = "congelado"
+                            self.inimigo_atual.tempo_congelado = 300
                             self.mago.modificarMana(-self.correntes_abismo.mana)
                             self.tempo_efeito_correntes = 15
 
@@ -1279,7 +1278,7 @@ class Jogo:
         if self.tempo_efeito_correntes > 0:
             self.tempo_efeito_correntes -= 1
 
-        self.atualizarInimigo(self.lutador_demoniaco)
+        self.atualizarInimigo(self.inimigo_atual)
 
         if self.projetil != None:
             self.projetil.mover()
@@ -1287,8 +1286,8 @@ class Jogo:
             if self.projetil.x < 0 or self.projetil.x > 144 or self.projetil.y < 20 or self.projetil.y > 86:
                 self.projetil = None
 
-            elif self.colisaoProjetil(self.lutador_demoniaco):
-                self.lutador_demoniaco.modificarVida(-self.projetil.dano)
+            elif self.colisaoProjetil(self.inimigo_atual):
+                self.inimigo_atual.modificarVida(-self.projetil.dano)
                 self.projetil = None
 
         if self.tempo_mensagem > 0:
@@ -1367,11 +1366,11 @@ class Jogo:
             pyxel.rect(self.arbusto.x, self.arbusto.y, self.arbusto.largura, self.arbusto.altura, 3)
             pyxel.rect(self.porta.x, self.porta.y, self.porta.largura, self.porta.altura, 4)
 
-            if self.lutador_demoniaco.vida > 0:
-                x_inimigo = self.lutador_demoniaco.quadro * 16
-                pyxel.blt(self.lutador_demoniaco.x, self.lutador_demoniaco.y, 0, x_inimigo, 32, 16, 16, 0)
-                pyxel.text(self.lutador_demoniaco.x, self.lutador_demoniaco.y - 6, "V:" + str(self.lutador_demoniaco.vida), 7)
-                pyxel.text(self.lutador_demoniaco.x, self.lutador_demoniaco.y - 12, self.lutador_demoniaco.estado, 10)
+            if self.inimigo_atual.vida > 0:
+                x_inimigo = self.inimigo_atual.quadro * 16
+                pyxel.blt(self.inimigo_atual.x, self.inimigo_atual.y, 0, x_inimigo, 32, 16, 16, 0)
+                pyxel.text(self.inimigo_atual.x, self.inimigo_atual.y - 6, "V:" + str(self.inimigo_atual.vida), 7)
+                pyxel.text(self.inimigo_atual.x, self.inimigo_atual.y - 12, self.inimigo_atual.estado, 10)
 
             if self.projetil != None:
                 pyxel.blt(self.projetil.x, self.projetil.y, 1, 0, self.projetil.imagem_y, 16, 16, 0)
