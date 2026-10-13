@@ -325,6 +325,7 @@ class Jogo:
         pyxel.images[2].load(16, 0, "carta.png")
         pyxel.images[2].load(32, 0, "elixir_mana.png")
         pyxel.images[2].load(48, 0, "pocao_velocidade.png")
+        pyxel.sounds[0].pcm("musica_final.ogg")
 
         self.paleta_original = [pyxel.colors[i] for i in range(16)]
         self.paleta_floresta = self.paleta_original.copy()
@@ -1668,6 +1669,8 @@ class Jogo:
 
             if centro_x >= self.saida_x and centro_x <= self.saida_x + 32:
                 if centro_y >= self.saida_y and centro_y <= self.saida_y + 32:
+                    if self.colapso_ativo == False:
+                        pyxel.play(0, 0, sec=54, loop=True)
                     self.colapso_ativo = True
                     self.tempo_colapso = 0
                     self.projetil = None
