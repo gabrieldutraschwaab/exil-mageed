@@ -305,6 +305,7 @@ class Jogo:
         pyxel.images[1].load(0, 168, "fundo_demonios.png")
         pyxel.images[0].load(0, 128, "fundo_vampiros.png")
         pyxel.images[1].load(0, 0, "disparo_arcano.png")
+        pyxel.images[1].load(0, 16, "ruina_proibida.png")
         pyxel.images[1].load(0, 32, "bola_fogo.png")
         pyxel.images[1].load(0, 64, "barreira_cristal.png")
         pyxel.images[1].load(0, 96, "explosao_arcana.png")
@@ -342,6 +343,7 @@ class Jogo:
         self.barreira_cristal = Magia("Barreira de Cristal", 0, 25, 60, 0, 3, 1, 100)
         self.explosao_arcana = Magia("Explosao Arcana", 50, 35, 70, 0, 4, 1, 100)
         self.correntes_abismo = Magia("Correntes do Abismo", 0, 20, 60, 40, 1, 1, 100)
+        self.ruina_proibida = Magia("Ruina Proibida", 150, 40, 40, 0, 5, 1, 100)
         self.mago.aprenderMagia(self.disparo_arcano)
         self.mago.magias_equipadas[0] = self.disparo_arcano
         self.pocao_vida = Item("Pocao de Vida", "ativo", "vida", 40, True, "comum", 0)
@@ -349,6 +351,9 @@ class Jogo:
         self.coracao_tita = Item("Coracao do Tita", "ativo", "forca", 50, True, "epico", 300)
         self.pele_montanha = Item("Pele da Montanha", "ativo", "defesa", 60, True, "epico", 300)
         self.elixir_mana = Item("Elixir de Mana", "ativo", "mana", 50, True, "raro", 0)
+        self.pergaminho = Item("Pergaminho Proibido", "especial", "pergaminho", 0, False, "epico", 0)
+        self.bau_final = Bau(72, 52, 16, 16, "itens", [self.pergaminho, self.pocao_vida, self.pocao_vida, self.elixir_mana, self.elixir_mana], 6)
+        self.pergaminho_obtido = False
         self.bau_magias = Bau(140, 22, 16, 16, "magias", [self.bola_fogo], 6)
         self.bau_itens = Bau(140, 44, 16, 16, "itens", [self.armadura_soldado], 6)
         self.bau_magias_2 = Bau(4, 82, 16, 16, "magias", [self.barreira_cristal], 6)
@@ -414,6 +419,32 @@ class Jogo:
                 "voce conquistou ate aqui.",
                 "",
                 "Nao ha mais volta."
+            ]
+        ]
+
+        self.paginas_deuses = [
+            [
+                "Ao tocar o Pergaminho Proibido,",
+                "um poder impossivel atravessa",
+                "seu corpo. Suas magias agora",
+                "ultrapassam qualquer limite",
+                "mortal, e voce aprendeu a magia",
+                "Ruina Proibida."
+            ],
+            [
+                "Mas algo despertou. A entidade",
+                "que criou os reinos dos vampiros",
+                "e dos demonios sentiu seu poder.",
+                "Ela sabe que voce pode refinar",
+                "as magias proibidas e se tornar",
+                "uma ameaca a todo o universo."
+            ],
+            [
+                "Para impedir isso, ela vem atras",
+                "de voce. O chao se desfaz e voce",
+                "e arrastado pro reino dos deuses.",
+                "",
+                "Nao tem pra onde fugir."
             ]
         ]
 
@@ -683,7 +714,11 @@ class Jogo:
                                             self.mensagem_bau = "Sem espaco para magias"
 
                                     elif self.bau_aberto.tipo == "itens":
-                                        if len(self.mago.inventario) < self.mago.capacidade_inventario:
+                                        if conteudo_escolhido == self.pergaminho:
+                                            self.bau_aberto.conteudo.pop(i)
+                                            self.obterPergaminho()
+                                            self.mensagem_bau = "O poder proibido e seu"
+                                        elif len(self.mago.inventario) < self.mago.capacidade_inventario:
                                             self.mago.inventario.append(conteudo_escolhido)
                                             self.bau_aberto.conteudo.pop(i)
                                             self.mensagem_bau = "Item coletado"
@@ -696,8 +731,8 @@ class Jogo:
                     elif self.modo_bau == "guardar":
                         if self.bau_aberto.tipo == "itens":
                             for i in range(len(self.mago.inventario)):
-                                inicio_y = 38 + i * 10
-                                final_y = inicio_y + 7
+                                inicio_y = 37 + i * 6
+                                final_y = inicio_y + 5
 
                                 if pyxel.mouse_x >= 16 and pyxel.mouse_x <= 146:
                                     if pyxel.mouse_y >= inicio_y and pyxel.mouse_y <= final_y:
@@ -733,6 +768,12 @@ class Jogo:
 
                 self.tela_aberta = None
                 self.bau_aberto = None
+
+                if self.pergaminho_obtido and self.estado_jogo == "demonios":
+                    self.paginas_carta = self.paginas_deuses
+                    self.pagina_carta = 0
+                    self.titulo_carta = "PERGAMINHO PROIBIDO"
+                    self.tela_aberta = "carta"
 
             return
 
@@ -796,8 +837,8 @@ class Jogo:
         if self.tela_aberta == "itens":
             if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
                 for i in range(len(self.mago.inventario)):
-                    inicio_y = 29 + i * 10
-                    final_y = 38 + i * 10
+                    inicio_y = 29 + i * 6
+                    final_y = 34 + i * 6
 
                     if pyxel.mouse_x >= 14 and pyxel.mouse_x <= 146:
                         if pyxel.mouse_y >= inicio_y and pyxel.mouse_y <= final_y:
@@ -1138,6 +1179,14 @@ class Jogo:
             if distancia_ataque <= inimigo.raio_ataque and self.paredeBloqueiaVisao(inimigo) == False and inimigo.tempo_ataque == 0:
                 self.aplicarDanoMago(inimigo.forca // 4)
                 inimigo.tempo_ataque = 40
+
+    def obterPergaminho(self):
+        self.pergaminho_obtido = True
+        self.mago.aprenderMagia(self.ruina_proibida)
+        self.disparo_arcano.dano = self.disparo_arcano.dano * 2
+        self.bola_fogo.dano = self.bola_fogo.dano * 2
+        self.explosao_arcana.dano = self.explosao_arcana.dano * 2
+        self.correntes_abismo.alcance = 50
         
     def update(self):
         if self.tela_aberta == "carta":
@@ -1174,6 +1223,13 @@ class Jogo:
                         self.portal_ativo = False
                         self.inimigo_atual = self.lutador_demoniaco
 
+                    elif self.estado_jogo == "demonios":
+                        self.estado_jogo = "deuses"
+                        self.mago.x = 10
+                        self.mago.y = 86
+                        self.projetil = None
+                        self.baus = []
+
             return
 
         if self.estado_jogo == "menu":
@@ -1197,6 +1253,15 @@ class Jogo:
                 self.vampiro_2.vida = 0
                 self.inimigo_atual = self.lutador_demoniaco
                 self.baus = [self.bau_demonio_magias, self.bau_demonio_itens]
+            elif self.estado_jogo == "demonios":
+                if self.pergaminho_obtido == False:
+                    self.obterPergaminho()
+
+                self.estado_jogo = "deuses"
+                self.lutador_demoniaco.vida = 0
+                self.demonio_2.vida = 0
+                self.inimigo_atual = self.demonio_2
+                self.baus = []
 
             self.mago.x = 10
             self.mago.y = 86
@@ -1407,6 +1472,18 @@ class Jogo:
                         self.projetil = ProjetilMagico(self.mago.x + 4, self.mago.y + 4, direcao_x, direcao_y, self.explosao_arcana.dano, 96)
                         self.mago.modificarMana(-self.explosao_arcana.mana)
 
+            elif self.mago.magia_selecionada == self.ruina_proibida:
+                if self.mago.mana >= self.ruina_proibida.mana:
+                    distancia_x = pyxel.mouse_x - (self.mago.x + 8)
+                    distancia_y = pyxel.mouse_y - (self.mago.y + 8)
+                    distancia = (distancia_x * distancia_x + distancia_y * distancia_y) ** 0.5
+
+                    if distancia > 0:
+                        direcao_x = distancia_x / distancia
+                        direcao_y = distancia_y / distancia
+                        self.projetil = ProjetilMagico(self.mago.x + 4, self.mago.y + 4, direcao_x, direcao_y, self.ruina_proibida.dano, 16)
+                        self.mago.modificarMana(-self.ruina_proibida.mana)
+
             elif self.mago.magia_selecionada == self.correntes_abismo:
                 if self.mago.mana >= self.correntes_abismo.mana:
                     if self.inimigo_atual.vida > 0:
@@ -1417,7 +1494,10 @@ class Jogo:
                         if distancia <= self.correntes_abismo.alcance:
                             self.inimigo_atual.estado_anterior = self.inimigo_atual.estado
                             self.inimigo_atual.estado = "congelado"
-                            self.inimigo_atual.tempo_congelado = 210
+                            if self.pergaminho_obtido:
+                                self.inimigo_atual.tempo_congelado = 300
+                            else:
+                                self.inimigo_atual.tempo_congelado = 210
                             self.mago.modificarMana(-self.correntes_abismo.mana)
                             self.tempo_efeito_correntes = 15
 
@@ -1453,6 +1533,15 @@ class Jogo:
             self.inimigo_atual = self.demonio_2
             self.baus.append(self.bau_demonio_magias_2)
             self.baus.append(self.bau_demonio_itens_2)
+
+        if self.estado_jogo == "demonios" and self.demonio_2.vida == 0 and self.bau_final not in self.baus:
+            self.baus.append(self.bau_final)
+
+        if self.pergaminho_obtido and self.estado_jogo == "demonios" and self.tela_aberta == None:
+            self.paginas_carta = self.paginas_deuses
+            self.pagina_carta = 0
+            self.titulo_carta = "PERGAMINHO PROIBIDO"
+            self.tela_aberta = "carta"
 
         if self.estado_jogo == "vampiros" and self.vampiro_2.vida == 0:
             self.portal_ativo = True
@@ -1680,6 +1769,8 @@ class Jogo:
                 imagem_y = 96
             elif magia == self.correntes_abismo:
                 imagem_y = 128
+            elif magia == self.ruina_proibida:
+                imagem_y = 16
 
             if imagem_y != None:
                 x_magia = 89 + i * 17
@@ -1736,7 +1827,7 @@ class Jogo:
                         elif self.mago.inventario[i].raridade == "horrivel":
                             cor_item = 8
 
-                    pyxel.text(16, 32 + i * 10, str(i + 1) + " - " + self.mago.inventario[i].nome + " [" + self.mago.inventario[i].raridade + "]", cor_item)
+                    pyxel.text(16, 30 + i * 6, str(i + 1) + " - " + self.mago.inventario[i].nome + " [" + self.mago.inventario[i].raridade + "]", cor_item)
 
             if len(self.mago.inventario) > self.mago.capacidade_inventario:
                 quantidade_excluir = len(self.mago.inventario) - self.mago.capacidade_inventario
@@ -1803,7 +1894,7 @@ class Jogo:
                     else:
                         for i in range(len(self.mago.inventario)):
                             objeto = self.mago.inventario[i]
-                            pyxel.text(16, 38 + i * 10, objeto.nome, 7)
+                            pyxel.text(16, 37 + i * 6, objeto.nome, 7)
                 else:
                     if len(self.bau_aberto.conteudo) == 0:
                         pyxel.text(65, 55, "VAZIO", 7)
@@ -1813,7 +1904,7 @@ class Jogo:
                             pyxel.text(16, 38 + i * 10, objeto.nome, 7)
 
                 if self.tempo_mensagem_bau > 0:
-                    pyxel.text(16, 92, self.mensagem_bau, 10)
+                    pyxel.text(60, 30, self.mensagem_bau, 10)
 
         if self.jogo_pausado:
             pyxel.rect(40, 42, 80, 32, 1)
