@@ -223,6 +223,8 @@ class Inimigo:
         self.passos_desvio = 0
         self.direcao_desvio = 0
         self.altura_sprite = 16
+        self.largura_sprite = 16
+        self.imagem_x = 0
     
     def modificarVida(self, modificacao):
         self.vida += modificacao
@@ -303,6 +305,11 @@ class Jogo:
         pyxel.images[0].load(0, 80, "demonio_2.png")
         pyxel.images[0].load(0, 104, "cenario_demonios.png")
         pyxel.images[1].load(0, 168, "fundo_demonios.png")
+        pyxel.images[0].load(128, 32, "deus.png")
+        pyxel.images[0].load(64, 104, "cenario_deuses.png")
+        pyxel.images[2].load(160, 0, "fundo_deuses_1.png")
+        pyxel.images[2].load(160, 82, "fundo_deuses_2.png")
+        pyxel.images[2].load(160, 164, "saida_deuses.png")
         pyxel.images[0].load(0, 128, "fundo_vampiros.png")
         pyxel.images[1].load(0, 0, "disparo_arcano.png")
         pyxel.images[1].load(0, 16, "ruina_proibida.png")
@@ -502,6 +509,37 @@ class Jogo:
         self.demonio_2.raio_deteccao = 65
         self.demonio_2.raio_ataque = 24
         self.demonio_2.altura_sprite = 23
+
+        self.deus = Inimigo("Trono dos Mil Olhos", 1500, 116, 70, 80, 50, 120, 120, 35, 16, 16, 5)
+        self.deus.tipo = "deus"
+        self.deus.imagem_x = 128
+        self.deus.imagem_y = 32
+        self.deus.cor_transparente = 11
+        self.deus.raio_deteccao = 85
+        self.deus.raio_ataque = 36
+        self.deus.largura_sprite = 32
+        self.deus.altura_sprite = 32
+
+        self.paredes_deuses = [
+            Parede(96, 20, 16, 16),
+            Parede(96, 68, 16, 16),
+            Parede(128, 68, 16, 16),
+            Parede(16, 36, 16, 16),
+            Parede(48, 36, 16, 16),
+            Parede(48, 84, 16, 16)
+        ]
+        self.portas_deuses = [
+            Porta(96, 36, 16, 16),
+            Porta(96, 52, 16, 16),
+            Porta(112, 68, 16, 16),
+            Porta(32, 36, 16, 16),
+            Porta(48, 52, 16, 16),
+            Porta(48, 68, 16, 16)
+        ]
+
+        self.saida_ativa = False
+        self.saida_x = 124
+        self.saida_y = 24
 
         self.vampiro_1 = Inimigo("Guarda Vampiro", 120, 52, 30, 50, 30, 40, 120, 35, 16, 16, 1)
         self.vampiro_1.tipo = "vampiro"
@@ -1229,6 +1267,9 @@ class Jogo:
                         self.mago.y = 86
                         self.projetil = None
                         self.baus = []
+                        self.paredes = self.paredes_deuses
+                        self.portas = self.portas_deuses
+                        self.inimigo_atual = self.deus
 
             return
 
@@ -1260,15 +1301,17 @@ class Jogo:
                 self.estado_jogo = "deuses"
                 self.lutador_demoniaco.vida = 0
                 self.demonio_2.vida = 0
-                self.inimigo_atual = self.demonio_2
+                self.inimigo_atual = self.deus
                 self.baus = []
+                self.paredes = self.paredes_deuses
+                self.portas = self.portas_deuses
 
             self.mago.x = 10
             self.mago.y = 86
             return
 
         if pyxel.btnp(pyxel.KEY_K) and self.tela_aberta == None:
-            if self.estado_jogo == "vampiros" or self.estado_jogo == "demonios":
+            if self.estado_jogo == "vampiros" or self.estado_jogo == "demonios" or self.estado_jogo == "deuses":
                 self.inimigo_atual.vida = 0
 
         self.atualizarHotbar()
@@ -1543,6 +1586,9 @@ class Jogo:
             self.titulo_carta = "PERGAMINHO PROIBIDO"
             self.tela_aberta = "carta"
 
+        if self.estado_jogo == "deuses" and self.deus.vida == 0:
+            self.saida_ativa = True
+
         if self.estado_jogo == "vampiros" and self.vampiro_2.vida == 0:
             self.portal_ativo = True
 
@@ -1604,11 +1650,14 @@ class Jogo:
             pyxel.blt(0, 20, 2, 0, 96, 160, 82, 0)
             pyxel.pal()
 
-        elif self.estado_jogo == "vampiros" or self.estado_jogo == "demonios":
+        elif self.estado_jogo == "vampiros" or self.estado_jogo == "demonios" or self.estado_jogo == "deuses":
             if self.estado_jogo == "vampiros":
                 pyxel.blt(0, 20, 0, 0, 128, 160, 82)
-            else:
+            elif self.estado_jogo == "demonios":
                 pyxel.blt(0, 20, 1, 0, 168, 160, 82)
+            else:
+                pyxel.blt(0, 20, 2, 160, 0, 80, 82)
+                pyxel.blt(80, 20, 2, 160, 82, 80, 82)
 
             if self.inimigo_atual.vida > 0:
                 pyxel.circb(self.inimigo_atual.x + 8, self.inimigo_atual.y + 8, self.inimigo_atual.raio_ataque, 8)
@@ -1677,26 +1726,47 @@ class Jogo:
         if self.estado_jogo != "prologo":
             if self.estado_jogo == "demonios":
                 linha_cenario = 104
+                coluna_cenario = 0
+                transparente_cenario = None
+            elif self.estado_jogo == "deuses":
+                linha_cenario = 104
+                coluna_cenario = 64
+                transparente_cenario = 11
             else:
                 linha_cenario = 64
+                coluna_cenario = 0
+                transparente_cenario = None
 
             for parede in self.paredes:
                 for bloco_x in range(0, parede.largura, 16):
                     for bloco_y in range(0, parede.altura, 16):
-                        pyxel.blt(parede.x + bloco_x, parede.y + bloco_y, 0, 0, linha_cenario, 16, 16)
+                        pyxel.blt(parede.x + bloco_x, parede.y + bloco_y, 0, coluna_cenario, linha_cenario, 16, 16, transparente_cenario)
 
             for porta in self.portas:
-                pyxel.blt(porta.x, porta.y, 0, 16, linha_cenario, 16, 16)
+                pyxel.blt(porta.x, porta.y, 0, coluna_cenario + 16, linha_cenario, 16, 16, transparente_cenario)
 
             for arbusto in self.arbustos:
-                pyxel.blt(arbusto.x, arbusto.y, 0, 32, linha_cenario, 16, 16)
+                pyxel.blt(arbusto.x, arbusto.y, 0, coluna_cenario + 32, linha_cenario, 16, 16, transparente_cenario)
+
+            if self.saida_ativa and self.estado_jogo == "deuses":
+                quadro_saida = [0, 1, 2, 3, 2, 1][(pyxel.frame_count // 6) % 6]
+                pyxel.blt(self.saida_x, self.saida_y, 2, 160 + (quadro_saida % 2) * 32, 164 + (quadro_saida // 2) * 32, 32, 32, 11)
 
             if self.portal_ativo and self.estado_jogo == "vampiros":
                 pyxel.blt(self.portal_x, self.portal_y, 0, 48, 104, 16, 16, 11)
 
             if self.inimigo_atual.vida > 0:
-                x_inimigo = self.inimigo_atual.quadro * 16
-                pyxel.blt(self.inimigo_atual.x, self.inimigo_atual.y + 16 - self.inimigo_atual.altura_sprite, 0, x_inimigo, self.inimigo_atual.imagem_y, 16, self.inimigo_atual.altura_sprite, self.inimigo_atual.cor_transparente)
+                x_inimigo = self.inimigo_atual.imagem_x + self.inimigo_atual.quadro * self.inimigo_atual.largura_sprite
+                pyxel.blt(
+                    self.inimigo_atual.x + 8 - self.inimigo_atual.largura_sprite // 2, 
+                    self.inimigo_atual.y + 16 - self.inimigo_atual.altura_sprite, 
+                    0, 
+                    x_inimigo, 
+                    self.inimigo_atual.imagem_y, 
+                    self.inimigo_atual.largura_sprite, 
+                    self.inimigo_atual.altura_sprite, 
+                    self.inimigo_atual.cor_transparente
+                )
                 pyxel.text(self.inimigo_atual.x, self.inimigo_atual.y - 6, "V:" + str(self.inimigo_atual.vida), 7)
                 pyxel.text(self.inimigo_atual.x, self.inimigo_atual.y - 12, self.inimigo_atual.estado, 10)
 

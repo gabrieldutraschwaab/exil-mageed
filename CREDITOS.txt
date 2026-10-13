@@ -15,3 +15,14 @@ Reino dos demonios - chao de lava e parede de tijolos (fundo_demonios.png, cenar
 
 Demonio 2, porta, caixa, escada do portal, Elixir de Mana e Ruina Proibida (demonio_2.png, cenario_demonios.png, elixir_mana.png, ruina_proibida.png)
   "16x16 DungeonTileset II" - Autor: 0x72 - https://0x72.itch.io/dungeontileset-ii - Licenca: CC0
+
+Reino dos deuses
+  Deus (deus.png) - "Angel Throne", autor: rdbi - https://rdbi.itch.io/angel-throne
+    Uso permitido em jogos; credito opcional; nao redistribuir o asset separadamente.
+    Alteracoes: reduzido para 32x32 e cores adaptadas para o Pyxel.
+  Fundo e planeta dos esconderijos (fundo_deuses_1.png, fundo_deuses_2.png, cenario_deuses.png)
+    "Space Background" (versao gratuita), autor: Ansimuz - https://ansimuz.itch.io/space-background
+    Uso comercial permitido; credito nao obrigatorio. Alteracoes: recortes, reducao e cores adaptadas para o Pyxel.
+  Portas e porta de saida (cenario_deuses.png) - "Portals", autor: LetargicDev - https://opengameart.org/content/portals - Licenca: CC0
+    Alteracoes: reduzido para 16x16 e cores adaptadas para o Pyxel.
+  Paredes com fontes de luz azul (cenario_deuses.png) - "16x16 DungeonTileset II", autor: 0x72 - https://0x72.itch.io/dungeontileset-ii - Licenca: CC0
