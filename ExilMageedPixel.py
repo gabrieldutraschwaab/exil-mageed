@@ -324,6 +324,7 @@ class Jogo:
         pyxel.images[2].load(0, 64, "bau.png")
         pyxel.images[2].load(16, 0, "carta.png")
         pyxel.images[2].load(32, 0, "elixir_mana.png")
+        pyxel.images[2].load(48, 0, "pocao_velocidade.png")
 
         self.paleta_original = [pyxel.colors[i] for i in range(16)]
         self.paleta_floresta = self.paleta_original.copy()
@@ -358,6 +359,7 @@ class Jogo:
         self.coracao_tita = Item("Coracao do Tita", "ativo", "forca", 50, True, "epico", 300)
         self.pele_montanha = Item("Pele da Montanha", "ativo", "defesa", 60, True, "epico", 300)
         self.elixir_mana = Item("Elixir de Mana", "ativo", "mana", 50, True, "raro", 0)
+        self.pocao_velocidade = Item("Pocao de Velocidade", "ativo", "velocidade", 15, True, "raro", 0)
         self.pergaminho = Item("Pergaminho Proibido", "especial", "pergaminho", 0, False, "epico", 0)
         self.bau_final = Bau(72, 52, 16, 16, "itens", [self.pergaminho, self.pocao_vida, self.pocao_vida, self.elixir_mana, self.elixir_mana], 6)
         self.pergaminho_obtido = False
@@ -460,10 +462,11 @@ class Jogo:
         self.portal_ativo = False
         self.portal_x = 72
         self.portal_y = 52
-        self.bau_prologo = Bau(72, 45, 16, 16, "itens", [self.carta_prologo, self.pocao_vida], 6)
+        self.bau_prologo = Bau(72, 45, 16, 16, "itens", [self.carta_prologo, self.pocao_vida, self.pocao_velocidade], 6)
         self.bau_aberto = None
         self.modo_bau = "retirar"
         self.projetil = None
+        self.projeteis = []
         self.tela_aberta = None
         self.estado_jogo = "menu"
         self.magia_inventario_selecionada = None
@@ -472,6 +475,7 @@ class Jogo:
         self.jogo_pausado = False
         self.tempo_barreira = 0
         self.tempo_mensagem = 0
+        self.mensagem = ""
         self.mensagem_bau = ""
         self.tempo_mensagem_bau = 0
         self.tempo_coracao_tita = 0
@@ -541,6 +545,30 @@ class Jogo:
         self.saida_x = 124
         self.saida_y = 24
 
+        self.colapso_ativo = False
+        self.tempo_colapso = 0
+        self.pagina_final = 0
+        self.paginas_final = [
+            [
+                "Seu poder cresceu tanto que",
+                "transcendeu a propria materia.",
+                "O universo nao suportou",
+                "e entrou em colapso."
+            ],
+            [
+                "Sua sede de vinganca tirou",
+                "a vida de muitas familias."
+            ],
+            [
+                "No fim, voce se tornou",
+                "algo ainda pior do que o",
+                "monstro que matou sua familia."
+            ],
+            [
+                "FIM"
+            ]
+        ]
+
         self.vampiro_1 = Inimigo("Guarda Vampiro", 120, 52, 30, 50, 30, 40, 120, 35, 16, 16, 1)
         self.vampiro_1.tipo = "vampiro"
         self.vampiro_1.imagem_y = 48
@@ -584,6 +612,13 @@ class Jogo:
     def paredeBloqueiaVisao(self, inimigo):
         for parede in self.paredes:
             if self.linhaBloqueada(inimigo, parede):
+                return True
+
+        return False
+
+    def portaBloqueiaAtaque(self, inimigo):
+        for porta in self.portas:
+            if self.linhaBloqueada(inimigo, porta):
                 return True
 
         return False
@@ -699,21 +734,21 @@ class Jogo:
 
         return colisaoX and colisaoY
 
-    def colisaoProjetil(self, inimigo):
+    def colisaoProjetil(self, inimigo, projetil):
         if inimigo.vida == 0:
             return False
 
-        colisaoX = self.projetil.x + 16 >= inimigo.x and self.projetil.x <= inimigo.x + inimigo.largura
-        colisaoY = self.projetil.y + 16 >= inimigo.y and self.projetil.y <= inimigo.y + inimigo.altura
+        colisaoX = projetil.x + 16 >= inimigo.x and projetil.x <= inimigo.x + inimigo.largura
+        colisaoY = projetil.y + 16 >= inimigo.y and projetil.y <= inimigo.y + inimigo.altura
 
         if colisaoX and colisaoY:
             return True
         else:
             return False
 
-    def projetilBateuObjeto(self):
-        centro_x = self.projetil.x + 8
-        centro_y = self.projetil.y + 8
+    def projetilBateuObjeto(self, projetil):
+        centro_x = projetil.x + 8
+        centro_y = projetil.y + 8
 
         for objeto in self.paredes + self.portas + self.arbustos:
             if centro_x >= objeto.x and centro_x <= objeto.x + objeto.largura:
@@ -760,6 +795,9 @@ class Jogo:
                                             self.mago.inventario.append(conteudo_escolhido)
                                             self.bau_aberto.conteudo.pop(i)
                                             self.mensagem_bau = "Item coletado"
+
+                                            if conteudo_escolhido.tipo == "passivo":
+                                                self.mensagem_bau = "Protege no inventario"
                                         else:
                                             self.mensagem_bau = "Sem espaco para itens"
 
@@ -1105,7 +1143,7 @@ class Jogo:
                     inimigo.estado = "retorno"
 
         elif inimigo.estado == "retorno":
-            if distancia_jogador <= inimigo.raio_deteccao:
+            if distancia_jogador <= inimigo.raio_deteccao and self.paredeBloqueiaVisao(inimigo) == False and self.arbustoBloqueiaVisao(inimigo) == False:
                 inimigo.estado = "perseguicao"
 
             else:
@@ -1214,7 +1252,7 @@ class Jogo:
             distancia_y = self.mago.y - inimigo.y
             distancia_ataque = (distancia_x * distancia_x + distancia_y * distancia_y) ** 0.5
 
-            if distancia_ataque <= inimigo.raio_ataque and self.paredeBloqueiaVisao(inimigo) == False and inimigo.tempo_ataque == 0:
+            if distancia_ataque <= inimigo.raio_ataque and self.paredeBloqueiaVisao(inimigo) == False and self.portaBloqueiaAtaque(inimigo) == False and inimigo.tempo_ataque == 0:
                 self.aplicarDanoMago(inimigo.forca // 4)
                 inimigo.tempo_ataque = 40
 
@@ -1227,6 +1265,25 @@ class Jogo:
         self.correntes_abismo.alcance = 50
         
     def update(self):
+        if self.colapso_ativo:
+            self.tempo_colapso += 1
+
+            if self.tempo_colapso >= 300:
+                self.colapso_ativo = False
+                self.estado_jogo = "final"
+                self.pagina_final = 0
+
+            return
+
+        if self.estado_jogo == "final":
+            if pyxel.btnp(pyxel.KEY_RETURN):
+                if self.pagina_final < len(self.paginas_final) - 1:
+                    self.pagina_final += 1
+                else:
+                    pyxel.quit()
+
+            return
+
         if self.tela_aberta == "carta":
             if pyxel.btnp(pyxel.KEY_RETURN):
                 if self.pagina_carta < len(self.paginas_carta) - 1:
@@ -1435,6 +1492,10 @@ class Jogo:
 
             if abriu_bau == False:
                 if self.mago.item_selecionado != None:
+                    if self.mago.item_selecionado.tipo == "passivo":
+                        self.mensagem = "Passivo: protege no inventario"
+                        self.tempo_mensagem = 90
+
                     if self.mago.item_selecionado.tipo == "ativo":
                         item_usado = self.mago.item_selecionado
                         item_foi_usado = False
@@ -1460,6 +1521,12 @@ class Jogo:
                             if self.mago.mana < 100:
                                 self.mago.modificarMana(item_usado.valor)
                                 item_foi_usado = True
+
+                        elif item_usado == self.pocao_velocidade:
+                            self.mago.modificarVelocidade(item_usado.valor)
+                            self.mensagem = "Velocidade aumentada!"
+                            self.tempo_mensagem = 90
+                            item_foi_usado = True
 
                         if item_foi_usado:
                             if item_usado.consumivel:
@@ -1555,17 +1622,23 @@ class Jogo:
         self.atualizarInimigo(self.inimigo_atual)
 
         if self.projetil != None:
-            self.projetil.mover()
+            self.projeteis.append(self.projetil)
+            self.projetil = None
 
-            if self.projetil.x < 0 or self.projetil.x > 144 or self.projetil.y < 20 or self.projetil.y > 86:
-                self.projetil = None
+        for projetil in self.projeteis[:]:
+            projetil.mover()
+            centro_x = projetil.x + 8
+            centro_y = projetil.y + 8
 
-            elif self.projetilBateuObjeto():
-                self.projetil = None
+            if centro_x < 0 or centro_x > 160 or centro_y < 20 or centro_y > 102:
+                self.projeteis.remove(projetil)
 
-            elif self.colisaoProjetil(self.inimigo_atual):
-                self.inimigo_atual.modificarVida(-self.projetil.dano)
-                self.projetil = None
+            elif self.projetilBateuObjeto(projetil):
+                self.projeteis.remove(projetil)
+
+            elif self.colisaoProjetil(self.inimigo_atual, projetil):
+                self.inimigo_atual.modificarVida(-projetil.dano)
+                self.projeteis.remove(projetil)
 
         if self.inimigo_atual == self.vampiro_1 and self.vampiro_1.vida == 0:
             self.inimigo_atual = self.vampiro_2
@@ -1588,6 +1661,16 @@ class Jogo:
 
         if self.estado_jogo == "deuses" and self.deus.vida == 0:
             self.saida_ativa = True
+
+        if self.saida_ativa and self.estado_jogo == "deuses":
+            centro_x = self.mago.x + 8
+            centro_y = self.mago.y + 8
+
+            if centro_x >= self.saida_x and centro_x <= self.saida_x + 32:
+                if centro_y >= self.saida_y and centro_y <= self.saida_y + 32:
+                    self.colapso_ativo = True
+                    self.tempo_colapso = 0
+                    self.projetil = None
 
         if self.estado_jogo == "vampiros" and self.vampiro_2.vida == 0:
             self.portal_ativo = True
@@ -1614,6 +1697,26 @@ class Jogo:
             for i in range(16):
                 pyxel.colors[i] = self.paleta_original[i]
         pyxel.cls(0)
+
+        if self.colapso_ativo:
+            forca_tremor = min(4, 1 + self.tempo_colapso // 60)
+            pyxel.camera(pyxel.rndi(-forca_tremor, forca_tremor), pyxel.rndi(-forca_tremor, forca_tremor))
+        else:
+            pyxel.camera()
+
+        if self.estado_jogo == "final":
+            pagina = self.paginas_final[self.pagina_final]
+            inicio_y = 56 - len(pagina) * 9 // 2
+
+            for i in range(len(pagina)):
+                pyxel.text(80 - len(pagina[i]) * 2, inicio_y + i * 9, pagina[i], 7)
+
+            if self.pagina_final < len(self.paginas_final) - 1:
+                pyxel.text(48, 108, "ENTER: continuar", 5)
+            else:
+                pyxel.text(58, 108, "ENTER: sair", 5)
+
+            return
 
         if self.estado_jogo == "menu":
             pyxel.text(58, 35, "EXIL MAGEED", 10)
@@ -1770,6 +1873,9 @@ class Jogo:
                 pyxel.text(self.inimigo_atual.x, self.inimigo_atual.y - 6, "V:" + str(self.inimigo_atual.vida), 7)
                 pyxel.text(self.inimigo_atual.x, self.inimigo_atual.y - 12, self.inimigo_atual.estado, 10)
 
+            for projetil in self.projeteis:
+                pyxel.blt(projetil.x, projetil.y, 1, 0, projetil.imagem_y, 16, 16, 0)
+
             if self.projetil != None:
                 pyxel.blt(self.projetil.x, self.projetil.y, 1, 0, self.projetil.imagem_y, 16, 16, 0)
 
@@ -1777,6 +1883,9 @@ class Jogo:
                 if self.pertoBau(bau):
                     if self.tela_aberta == None:
                         pyxel.text(24, 95, "Pressione E para abrir", 7)
+
+            if self.tempo_mensagem > 0:
+                pyxel.text(20, 88, self.mensagem, 10)
 
         pyxel.rect(0, 102, 160, 18, 1)
 
@@ -1815,6 +1924,9 @@ class Jogo:
                 imagem_y = 0
             elif item == self.elixir_mana:
                 imagem_x = 32
+                imagem_y = 0
+            elif item == self.pocao_velocidade:
+                imagem_x = 48
                 imagem_y = 0
 
             if imagem_y != None:
@@ -1975,6 +2087,34 @@ class Jogo:
 
                 if self.tempo_mensagem_bau > 0:
                     pyxel.text(60, 30, self.mensagem_bau, 10)
+
+        if self.colapso_ativo:
+            t = self.tempo_colapso
+
+            if t >= 60:
+                pyxel.rseed(7)
+                quantidade = min(30, (t - 60) // 6 + 1)
+
+                for i in range(quantidade):
+                    x1 = pyxel.rndi(0, 159)
+                    y1 = pyxel.rndi(20, 101)
+                    x2 = x1 + pyxel.rndi(-30, 30)
+                    y2 = y1 + pyxel.rndi(-20, 20)
+
+                    if i % 2 == 0:
+                        pyxel.line(x1, y1, x2, y2, 7)
+                    else:
+                        pyxel.line(x1, y1, x2, y2, 2)
+
+                pyxel.rseed(pyxel.frame_count)
+
+            if t >= 150:
+                pyxel.circ(self.mago.x + 8, self.mago.y + 8, (t - 150) * 2, 0)
+
+            if t >= 255 and t < 275:
+                pyxel.rect(-10, -10, 180, 140, 7)
+            elif t >= 275:
+                pyxel.rect(-10, -10, 180, 140, 0)
 
         if self.jogo_pausado:
             pyxel.rect(40, 42, 80, 32, 1)

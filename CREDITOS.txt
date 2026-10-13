@@ -13,7 +13,7 @@ Cenario do reino dos vampiros (fundo_vampiros.png, cenario_vampiros.png)
 Reino dos demonios - chao de lava e parede de tijolos (fundo_demonios.png, cenario_demonios.png)
   "16x16 Tiles" - Autor: Ogrebane - https://opengameart.org/node/4562 - Licenca: CC0
 
-Demonio 2, porta, caixa, escada do portal, Elixir de Mana e Ruina Proibida (demonio_2.png, cenario_demonios.png, elixir_mana.png, ruina_proibida.png)
+Demonio 2, porta, caixa, escada do portal, Elixir de Mana, Pocao de Velocidade e Ruina Proibida (demonio_2.png, cenario_demonios.png, elixir_mana.png, pocao_velocidade.png, ruina_proibida.png)
   "16x16 DungeonTileset II" - Autor: 0x72 - https://0x72.itch.io/dungeontileset-ii - Licenca: CC0
 
 Reino dos deuses
